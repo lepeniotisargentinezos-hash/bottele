@@ -28,6 +28,17 @@ function buildDeps() {
         },
       ]),
     },
+    externalMonitor: {
+      liveStatus: vi
+        .fn()
+        .mockResolvedValue([
+          {
+            name: 'pix-site-a',
+            url: 'https://www.site-a.com/api/health',
+            result: { success: true },
+          },
+        ]),
+    },
     analytics: {
       totalsByProject: vi
         .fn()
@@ -63,6 +74,26 @@ describe('/overview', () => {
     expect(message.indexOf('FORA DO AR')).toBeLessThan(message.indexOf('COM TRÁFEGO HOJE'));
     expect(message).toContain('⚠️ HTTP 503');
     expect(message).toContain('👥 50 visitantes · 120 views');
+    // Status do gateway ao lado do domínio com gateway monitorado.
+    expect(message).toContain('💳 ok');
+  });
+
+  it('destaca gateway fora no topo e na linha do projeto', async () => {
+    const deps = buildDeps();
+    deps.externalMonitor.liveStatus.mockResolvedValue([
+      { name: 'pix-site-a', url: 'https://www.site-a.com/api/health', result: { success: false } },
+    ]);
+    let message = '';
+    const ctx = {
+      replyWithChatAction: vi.fn(),
+      reply: vi.fn().mockImplementation((t: string) => {
+        message = t;
+      }),
+    };
+
+    await overviewCommand.handler(ctx as never, deps as never);
+    expect(message).toContain('1 gateway(s) PIX fora');
+    expect(message).toContain('💳 ⚠️ PIX FORA');
   });
 
   it('omite a linha de visitantes quando o site está no ar sem acessos', async () => {
