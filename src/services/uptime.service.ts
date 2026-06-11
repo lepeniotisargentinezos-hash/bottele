@@ -220,6 +220,25 @@ export class UptimeService {
     return results;
   }
 
+  /**
+   * Checa a home de todos os projetos ativos ao vivo, em paralelo.
+   * Usado pelo /projects para mostrar o estado real no momento do comando.
+   */
+  async liveStatusAll(): Promise<
+    Array<{ name: string; url: string; result: UptimeCheckResult }>
+  > {
+    const projects = await this.projects.findAllActive();
+    const checks = projects
+      .filter((project) => project.productionUrl)
+      .map(async (project) => {
+        const config = await this.settings.getProjectCheck(project.id);
+        const url = project.productionUrl as string;
+        const result = await this.checker.check(url, this.timeoutMs, config.expectedText);
+        return { name: project.name, url, result };
+      });
+    return Promise.all(checks);
+  }
+
   async statsFor(projectId: string, projectName: string, since: Date): Promise<UptimeStats> {
     const counters = await this.metrics.uptimeCounters(projectId, since);
     const downtimeMs = await this.incidents.totalDowntimeMsSince(since, projectId);

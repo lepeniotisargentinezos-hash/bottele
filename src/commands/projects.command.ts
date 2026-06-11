@@ -1,30 +1,54 @@
-import { escapeHtml } from '../utils/format';
+import { escapeHtml, formatMs } from '../utils/format';
 import type { BotCommand } from './types';
+
+/** Remove o esquema da URL para uma exibição mais enxuta. */
+function shortUrl(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
 
 export const projectsCommand: BotCommand = {
   command: 'projects',
-  description: 'Lista todos os projetos monitorados',
+  description: 'Lista os projetos com status ao vivo (no ar / fora do ar)',
   handler: async (ctx, deps) => {
-    const [projects, openIncidents] = await Promise.all([
-      deps.projects.findAllActive(),
-      deps.incidents.listOpen(),
-    ]);
+    await ctx.replyWithChatAction('typing');
+    const statuses = await deps.uptime.liveStatusAll();
 
-    if (projects.length === 0) {
-      await ctx.reply('Nenhum projeto encontrado. A sincronização pode ainda estar em andamento.');
+    if (statuses.length === 0) {
+      await ctx.reply(
+        'Nenhum projeto com URL de produção monitorável. A sincronização pode ainda estar em andamento.',
+      );
       return;
     }
 
-    const projectsWithIncident = new Set(openIncidents.map((incident) => incident.projectId));
+    const up = statuses.filter((s) => s.result.success);
+    const down = statuses.filter((s) => !s.result.success);
 
-    const lines = projects.map((project) => {
-      const icon = projectsWithIncident.has(project.id) ? '🔴' : '🟢';
-      return `${icon} ${escapeHtml(project.name)}`;
-    });
+    const lines: string[] = [
+      `📦 <b>Status dos projetos</b> — ${up.length}/${statuses.length} no ar`,
+    ];
 
-    await ctx.reply(
-      [`📦 <b>Projetos monitorados (${projects.length})</b>`, '', ...lines].join('\n'),
-      { parse_mode: 'HTML' },
-    );
+    if (down.length > 0) {
+      lines.push('', `🔴 <b>Fora do ar (${down.length})</b>`);
+      for (const item of down) {
+        const reason = item.result.statusCode
+          ? `HTTP ${item.result.statusCode}`
+          : (item.result.reason ?? 'sem resposta');
+        lines.push(
+          `🔴 <b>${escapeHtml(item.name)}</b>`,
+          `   ${escapeHtml(shortUrl(item.url))} — ${escapeHtml(reason)}`,
+        );
+      }
+    }
+
+    if (up.length > 0) {
+      lines.push('', `🟢 <b>No ar (${up.length})</b>`);
+      for (const item of up) {
+        lines.push(
+          `🟢 ${escapeHtml(item.name)} — ${escapeHtml(shortUrl(item.url))} (${formatMs(item.result.responseTimeMs)})`,
+        );
+      }
+    }
+
+    await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
   },
 };

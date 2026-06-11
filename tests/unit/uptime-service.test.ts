@@ -115,6 +115,20 @@ describe('UptimeService.checkAll', () => {
   });
 });
 
+describe('UptimeService.liveStatusAll', () => {
+  it('checa a home de cada projeto e retorna nome, url e resultado', async () => {
+    const { service } = buildService(upResult);
+    const statuses = await service.liveStatusAll();
+
+    expect(statuses).toHaveLength(1);
+    expect(statuses[0]).toMatchObject({
+      name: 'dashboard-app',
+      url: 'https://dashboard.example.com',
+    });
+    expect(statuses[0]?.result.success).toBe(true);
+  });
+});
+
 describe('classifyFetchError', () => {
   it('classifica timeout', () => {
     const error = new Error('timeout');
