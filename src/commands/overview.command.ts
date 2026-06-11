@@ -3,15 +3,28 @@ import type { BotCommand } from './types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-function shortUrl(url: string | null): string {
-  if (!url) return 'sem domínio';
+function stripScheme(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
 
-interface Row {
+/**
+ * Domínio de exibição: prefere um domínio custom (não *.vercel.app);
+ * cai para o nome do projeto quando ele já é um domínio; por fim, a URL.
+ */
+function displayDomain(project: {
   name: string;
-  url: string | null;
-  online: boolean | null; // null = sem URL monitorável
+  domains: string[];
+  productionUrl: string | null;
+}): string {
+  const custom = project.domains.find((d) => !d.endsWith('.vercel.app'));
+  if (custom) return custom;
+  if (project.name.includes('.')) return project.name;
+  return project.productionUrl ? stripScheme(project.productionUrl) : project.name;
+}
+
+interface Row {
+  domain: string;
+  online: boolean | null;
   detail: string;
   visitors: number;
   pageViews: number;
@@ -42,13 +55,12 @@ export const overviewCommand: BotCommand = {
       const stats = analyticsByProject.get(project.id);
       const online = status ? status.result.success : null;
       const detail = !status
-        ? '—'
+        ? 'sem URL monitorável'
         : status.result.success
           ? formatMs(status.result.responseTimeMs)
           : (status.result.reason ?? `HTTP ${status.result.statusCode ?? '?'}`);
       return {
-        name: project.name,
-        url: project.productionUrl,
+        domain: displayDomain(project),
         online,
         detail,
         visitors: stats?.visitors ?? 0,
@@ -56,7 +68,6 @@ export const overviewCommand: BotCommand = {
       };
     });
 
-    // Offline primeiro (mais urgente), depois por visitantes desc.
     rows.sort((a, b) => {
       if (a.online !== b.online) return a.online === false ? -1 : b.online === false ? 1 : 0;
       return b.visitors - a.visitors;
@@ -64,22 +75,33 @@ export const overviewCommand: BotCommand = {
 
     const onlineCount = rows.filter((r) => r.online === true).length;
     const monitored = rows.filter((r) => r.online !== null).length;
+    const headerIcon = onlineCount === monitored ? '🟢' : '🔴';
 
     const lines: string[] = [
       '📊 <b>OVERVIEW GERAL</b>',
-      `${onlineCount === monitored ? '🟢' : '🔴'} ${onlineCount}/${monitored} online${openIncidents > 0 ? ` · ⚠️ ${openIncidents} incidente(s)` : ''}`,
+      `${headerIcon} ${onlineCount}/${monitored} online${openIncidents > 0 ? ` · ⚠️ ${openIncidents} incidente(s)` : ''}`,
       `👥 Hoje: <b>${formatNumber(todayGlobal.visitors)}</b> visitantes · ${formatNumber(todayGlobal.pageViews)} views`,
-      '',
       '━━━━━━━━━━━━━━',
     ];
 
     for (const row of rows) {
-      const icon = row.online === null ? '⚪' : row.online ? '🟢' : '🔴';
-      lines.push(
-        `${icon} <b>${escapeHtml(row.name)}</b>`,
-        `   ${escapeHtml(shortUrl(row.url))} · ${escapeHtml(row.detail)}`,
-        `   👥 ${formatNumber(row.visitors)} · ${formatNumber(row.pageViews)} views`,
-      );
+      if (row.online === false) {
+        // Site fora do ar: destaque do motivo, sem ruído de visitantes.
+        lines.push('', `🔴 <b>${escapeHtml(row.domain)}</b>`, `   ⚠️ ${escapeHtml(row.detail)}`);
+        continue;
+      }
+
+      const icon = row.online === null ? '⚪' : '🟢';
+      const header = `${icon} <b>${escapeHtml(row.domain)}</b> · ${escapeHtml(row.detail)}`;
+      if (row.visitors > 0 || row.pageViews > 0) {
+        lines.push(
+          '',
+          header,
+          `   👥 ${formatNumber(row.visitors)} · ${formatNumber(row.pageViews)} views`,
+        );
+      } else {
+        lines.push('', header);
+      }
     }
 
     await ctx.reply(lines.join('\n'), { parse_mode: 'HTML' });
