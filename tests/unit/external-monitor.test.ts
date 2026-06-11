@@ -122,6 +122,27 @@ describe('ExternalMonitorService', () => {
     vi.unstubAllGlobals();
   });
 
+  it('accountForHost lê a conta do /api/health de um host', async () => {
+    const { service } = build(ok);
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ ok: true, account: 'G-P646' }), { status: 200 }),
+        ),
+    );
+    expect(await service.accountForHost('creditofacilonline.lol')).toBe('G-P646');
+    vi.unstubAllGlobals();
+  });
+
+  it('accountForHost retorna null quando falha', async () => {
+    const { service } = build(ok);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('down')));
+    expect(await service.accountForHost('x.com')).toBeNull();
+    vi.unstubAllGlobals();
+  });
+
   it('inspect anexa o MONITOR_TOKEN à URL quando configurado', async () => {
     const monitors = [{ name: 'anubispay', url: 'https://api.anubispay.com/v1/health' }];
     const settings = { getExternalMonitors: vi.fn().mockResolvedValue(monitors) };

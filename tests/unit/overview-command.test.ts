@@ -41,6 +41,12 @@ function buildDeps() {
         .mockResolvedValue([{ projectId: 'p1', visitors: 50, pageViews: 120 }]),
       totals: vi.fn().mockResolvedValue({ visitors: 50, pageViews: 120 }),
     },
+    sales: {
+      revenueByProject: vi
+        .fn()
+        .mockResolvedValue([{ projectId: 'p1', revenueCents: 29900, paidCount: 10 }]),
+      totals: vi.fn().mockResolvedValue({ paidCount: 10, totalCount: 25, revenueCents: 29900 }),
+    },
     incidents: { countOpen: vi.fn().mockResolvedValue(1) },
   };
 }
@@ -73,6 +79,9 @@ describe('/overview', () => {
     // Conta do gateway ao lado do domínio e resumo de contas no topo.
     expect(message).toContain('💳 Conta Principal');
     expect(message).toContain('💳 Contas: Conta Principal ×1');
+    // Receita no topo e na linha do site com vendas.
+    expect(message).toContain('💰 Hoje:');
+    expect(message).toMatch(/R\$\s?299,00/);
   });
 
   it('destaca gateway fora no topo e na linha do projeto', async () => {

@@ -114,6 +114,20 @@ export class ExternalMonitorService {
     );
   }
 
+  /** Busca a conta do gateway de um host específico via /api/health (1 requisição). */
+  async accountForHost(host: string): Promise<string | null> {
+    try {
+      const response = await fetch(this.withToken(`https://${host}/api/health`), {
+        redirect: 'follow',
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+      const data = (await response.json().catch(() => null)) as { account?: unknown } | null;
+      return data && typeof data.account === 'string' && data.account ? data.account : null;
+    } catch {
+      return null;
+    }
+  }
+
   /**
    * Inspeciona cada monitor lendo o corpo JSON (ex.: o /api/health dos sites),
    * extraindo o status e a conta do gateway. Usado pelo /overview para mostrar

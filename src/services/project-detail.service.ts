@@ -7,6 +7,7 @@ import type { UptimeService } from './uptime.service';
 import type { PerformanceService } from './performance.service';
 import type { AnalyticsService } from './analytics.service';
 import type { ExternalMonitorService } from './external-monitor.service';
+import type { SalesService } from './sales.service';
 import type { SslService } from './ssl.service';
 import type { TopEntry } from '../database/repositories/pageview.repository';
 import { toErrorMessage } from '../utils/errors';
@@ -36,6 +37,10 @@ export interface ProjectDetail {
   pageViewsToday: number;
   visitors7d: number;
   pageViews7d: number;
+  revenueCentsToday: number;
+  paidCountToday: number;
+  revenueCents7d: number;
+  paidCount7d: number;
   topPages: TopEntry[];
   recentDeploys: Array<{ state: DeploymentState; branch: string | null; createdAt: Date }>;
   openIncidents: string[];
@@ -54,6 +59,7 @@ export class ProjectDetailService {
     private readonly analytics: AnalyticsService,
     private readonly externalMonitor: ExternalMonitorService,
     private readonly ssl: SslService,
+    private readonly sales: SalesService,
     private readonly logger: Logger,
   ) {}
 
@@ -83,6 +89,8 @@ export class ProjectDetailService {
       sslRows,
       today,
       week,
+      salesToday,
+      sales7d,
       topPages,
       recent,
       openIncidents,
@@ -93,6 +101,8 @@ export class ProjectDetailService {
       this.ssl.statusForAll(),
       this.analytics.totals(todayStart, now, projectId),
       this.analytics.totals(weekStart, now, projectId),
+      this.sales.totals(todayStart, now, projectId),
+      this.sales.totals(weekStart, now, projectId),
       this.analytics.topPages(weekStart, now, 5, projectId),
       this.deployments.findRecentByProject(projectId, 5),
       this.incidents.listOpen(),
@@ -130,6 +140,10 @@ export class ProjectDetailService {
       pageViewsToday: today.pageViews,
       visitors7d: week.visitors,
       pageViews7d: week.pageViews,
+      revenueCentsToday: salesToday.revenueCents,
+      paidCountToday: salesToday.paidCount,
+      revenueCents7d: sales7d.revenueCents,
+      paidCount7d: sales7d.paidCount,
       topPages,
       recentDeploys: recent.map((d) => ({
         state: d.state,

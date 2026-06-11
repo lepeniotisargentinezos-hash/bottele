@@ -9,6 +9,7 @@ import type {
   ProjectDetailService,
   ProjectSyncService,
   ReportService,
+  SalesService,
   SettingsService,
   SslService,
   StatusService,
@@ -37,6 +38,7 @@ export interface CommandDependencies {
   analytics: AnalyticsService;
   projectSync: ProjectSyncService;
   projectDetail: ProjectDetailService;
+  sales: SalesService;
 }
 
 export interface BotCommand {

@@ -1,7 +1,7 @@
 import { InlineKeyboard } from 'grammy';
 import type { ProjectDetail } from '../services';
 import type { Project } from '@prisma/client';
-import { escapeHtml, formatDateTime, formatMs, formatNumber } from '../utils/format';
+import { escapeHtml, formatBRL, formatDateTime, formatMs, formatNumber } from '../utils/format';
 
 const STATE_ICONS: Record<string, string> = {
   READY: '✅',
@@ -53,7 +53,16 @@ export function buildProjectCard(
     '',
     `👥 <b>Hoje:</b> ${formatNumber(detail.visitorsToday)} visitantes · ${formatNumber(detail.pageViewsToday)} views`,
     `👥 <b>7 dias:</b> ${formatNumber(detail.visitors7d)} visitantes · ${formatNumber(detail.pageViews7d)} views`,
+    '',
+    `💰 <b>Hoje:</b> ${formatBRL(detail.revenueCentsToday)} · ${detail.paidCountToday} venda(s)`,
+    `💰 <b>7 dias:</b> ${formatBRL(detail.revenueCents7d)} · ${detail.paidCount7d} venda(s)`,
   );
+
+  // Conversão visitante → venda (quando há visitantes no período).
+  if (detail.visitors7d > 0) {
+    const conv = (detail.paidCount7d / detail.visitors7d) * 100;
+    lines.push(`📊 Conversão (7d): ${conv.toFixed(2).replace('.', ',')}%`);
+  }
 
   if (detail.topPages.length > 0) {
     lines.push('', '📄 <b>Top páginas (7d)</b>');

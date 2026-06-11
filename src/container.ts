@@ -2,7 +2,7 @@ import { Bot } from 'grammy';
 import type { PrismaClient } from '@prisma/client';
 import { env } from './config/env';
 import { logger } from './utils/logger';
-import { escapeHtml } from './utils/format';
+import { escapeHtml, formatBRL, formatDateTime } from './utils/format';
 import type { AnubisWebhookEvent } from './services';
 import { createPrismaClient } from './database/client';
 import {
@@ -173,6 +173,7 @@ export function buildContainer(): Container {
     analyticsService,
     externalMonitorService,
     sslService,
+    salesService,
     logger,
   );
 
@@ -219,6 +220,7 @@ export function buildContainer(): Container {
     analytics: analyticsService,
     projectSync,
     projectDetail: projectDetailService,
+    sales: salesService,
   };
 
   const configuredBot = createBot({
@@ -236,19 +238,21 @@ export function buildContainer(): Container {
     const alertSettings = await settingsService.getAlertSettings();
     if (!alertSettings.salesAlerts) return;
 
-    const valor = (result.amountCents / 100).toLocaleString('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    });
-    await notifier.send(
-      'SYSTEM',
-      [
-        '💰 <b>VENDA CONFIRMADA</b>',
-        '',
-        `Projeto: <b>${escapeHtml(result.projectName ?? 'n/d')}</b>`,
-        `Valor: <b>${valor}</b>`,
-      ].join('\n'),
-    );
+    // Busca a conta (gateway) usada pelo site, sem bloquear caso falhe.
+    const account = result.site
+      ? await externalMonitorService.accountForHost(result.site).catch(() => null)
+      : null;
+
+    const lines = [
+      '💰 <b>VENDA CONFIRMADA</b>',
+      '',
+      `🌐 <b>${escapeHtml(result.projectName ?? result.site ?? 'n/d')}</b>`,
+      account ? `💳 Conta: ${escapeHtml(account)}` : null,
+      `💵 <b>${formatBRL(result.amountCents)}</b>`,
+      `🕐 ${formatDateTime(result.occurredAt, env.TZ)}`,
+    ].filter((line): line is string => line !== null);
+
+    await notifier.send('SYSTEM', lines.join('\n'));
   };
 
   return {

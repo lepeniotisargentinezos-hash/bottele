@@ -20,7 +20,9 @@ export interface IngestResult {
   ok: boolean;
   becamePaid: boolean;
   projectName: string | null;
+  site: string | null;
   amountCents: number;
+  occurredAt: Date;
 }
 
 function normalizeHost(value: string): string {
@@ -82,12 +84,6 @@ export class SalesService {
   }
 
   async ingest(event: AnubisWebhookEvent): Promise<IngestResult> {
-    const id = event.Id ?? event.ExternalId;
-    if (!id) {
-      this.logger.warn({ event }, 'Webhook AnubisPay sem Id; ignorado');
-      return { ok: false, becamePaid: false, projectName: null, amountCents: 0 };
-    }
-
     const status = (event.Status ?? 'unknown').toLowerCase();
     const amountCents = Math.round((event.Amount ?? 0) * 100);
     const occurredAt =
@@ -95,6 +91,19 @@ export class SalesService {
       parseDate(event.UpdatedAt) ??
       parseDate(event.CreatedAt) ??
       new Date();
+
+    const id = event.Id ?? event.ExternalId;
+    if (!id) {
+      this.logger.warn({ event }, 'Webhook AnubisPay sem Id; ignorado');
+      return {
+        ok: false,
+        becamePaid: false,
+        projectName: null,
+        site: null,
+        amountCents: 0,
+        occurredAt,
+      };
+    }
 
     try {
       const { projectId, site, name } = await this.resolveProject(event.PostbackUrl);
@@ -110,10 +119,17 @@ export class SalesService {
 
       const becamePaid = status === 'paid' && previousStatus !== 'paid';
       this.logger.info({ id, status, amountCents, site }, 'Venda AnubisPay registrada');
-      return { ok: true, becamePaid, projectName: name, amountCents };
+      return { ok: true, becamePaid, projectName: name, site, amountCents, occurredAt };
     } catch (error) {
       this.logger.error({ id, error: toErrorMessage(error) }, 'Falha ao registrar venda');
-      return { ok: false, becamePaid: false, projectName: null, amountCents };
+      return {
+        ok: false,
+        becamePaid: false,
+        projectName: null,
+        site: null,
+        amountCents,
+        occurredAt,
+      };
     }
   }
 

@@ -17,6 +17,11 @@ export function formatPercent(value: number, decimals = 2): string {
   return `${value.toFixed(decimals).replace('.', ',')}%`;
 }
 
+/** Formata centavos em reais: 2990 → "R$ 29,90". */
+export function formatBRL(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
 export function formatMs(value: number): string {
   if (value >= 1000) return `${(value / 1000).toFixed(2).replace('.', ',')}s`;
   return `${Math.round(value)}ms`;

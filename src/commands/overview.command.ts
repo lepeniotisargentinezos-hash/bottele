@@ -1,4 +1,4 @@
-import { escapeHtml, formatMs, formatNumber } from '../utils/format';
+import { escapeHtml, formatBRL, formatMs, formatNumber } from '../utils/format';
 import type { BotCommand } from './types';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -45,6 +45,8 @@ interface Row {
   visitors: number;
   pageViews: number;
   gateway: GatewayInfo | null;
+  revenueCents: number;
+  paidCount: number;
 }
 
 export const overviewCommand: BotCommand = {
@@ -56,19 +58,29 @@ export const overviewCommand: BotCommand = {
     const now = new Date();
     const todayStart = new Date(now.getTime() - DAY_MS);
 
-    const [projects, statuses, gateways, byProject, todayGlobal, openIncidents] = await Promise.all(
-      [
-        deps.projects.findAllActive(),
-        deps.uptime.liveStatusAll(),
-        deps.externalMonitor.inspect(),
-        deps.analytics.totalsByProject(todayStart, now),
-        deps.analytics.totals(todayStart, now),
-        deps.incidents.countOpen(),
-      ],
-    );
+    const [
+      projects,
+      statuses,
+      gateways,
+      byProject,
+      todayGlobal,
+      salesByProject,
+      salesTotal,
+      openIncidents,
+    ] = await Promise.all([
+      deps.projects.findAllActive(),
+      deps.uptime.liveStatusAll(),
+      deps.externalMonitor.inspect(),
+      deps.analytics.totalsByProject(todayStart, now),
+      deps.analytics.totals(todayStart, now),
+      deps.sales.revenueByProject(todayStart, now),
+      deps.sales.totals(todayStart, now),
+      deps.incidents.countOpen(),
+    ]);
 
     const statusByName = new Map(statuses.map((s) => [s.name, s]));
     const analyticsByProject = new Map(byProject.map((b) => [b.projectId, b]));
+    const salesByProjectId = new Map(salesByProject.map((s) => [s.projectId, s]));
 
     // Indexa o gateway (status + conta) por host já normalizado pelo inspect().
     const gatewayByHost = new Map<string, GatewayInfo>();
@@ -94,6 +106,7 @@ export const overviewCommand: BotCommand = {
     const rows: Row[] = projects.map((project) => {
       const status = statusByName.get(project.name);
       const stats = analyticsByProject.get(project.id);
+      const sale = salesByProjectId.get(project.id);
       const online = status ? status.result.success : null;
       const detail = !status
         ? 'sem URL monitorável'
@@ -107,6 +120,8 @@ export const overviewCommand: BotCommand = {
         visitors: stats?.visitors ?? 0,
         pageViews: stats?.pageViews ?? 0,
         gateway: findGateway(project),
+        revenueCents: sale?.revenueCents ?? 0,
+        paidCount: sale?.paidCount ?? 0,
       };
     });
 
@@ -145,6 +160,7 @@ export const overviewCommand: BotCommand = {
     if (gatewaysDown > 0) lines.push(`💳 ⚠️ <b>${gatewaysDown} gateway(s) PIX fora</b>`);
     lines.push(
       `👥 Hoje: <b>${formatNumber(todayGlobal.visitors)}</b> visitantes · ${formatNumber(todayGlobal.pageViews)} views`,
+      `💰 Hoje: <b>${formatBRL(salesTotal.revenueCents)}</b> · ${salesTotal.paidCount} venda(s)`,
     );
     if (accountSummary) lines.push(`💳 Contas: ${accountSummary}`);
 
@@ -158,9 +174,11 @@ export const overviewCommand: BotCommand = {
     if (withTraffic.length > 0) {
       lines.push('', '📈 <b>COM TRÁFEGO HOJE</b>');
       for (const row of withTraffic) {
+        const salesLine =
+          row.paidCount > 0 ? ` · 💰 ${formatBRL(row.revenueCents)} (${row.paidCount})` : '';
         lines.push(
           `🟢 <b>${escapeHtml(row.domain)}</b> · ${escapeHtml(row.detail)}${gatewayLabel(row.gateway)}`,
-          `   👥 ${formatNumber(row.visitors)} visitantes · ${formatNumber(row.pageViews)} views`,
+          `   👥 ${formatNumber(row.visitors)} visitantes · ${formatNumber(row.pageViews)} views${salesLine}`,
         );
       }
     }

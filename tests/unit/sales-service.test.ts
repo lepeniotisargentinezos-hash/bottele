@@ -79,4 +79,22 @@ describe('SalesService.ingest', () => {
     expect(result.ok).toBe(false);
     expect(sales.upsert).not.toHaveBeenCalled();
   });
+
+  it('delega consultas de receita ao repositório', async () => {
+    const { service, sales } = build(null);
+    sales.totals.mockResolvedValue({ paidCount: 1, totalCount: 2, revenueCents: 2990 });
+    sales.revenueByProject.mockResolvedValue([
+      { projectId: 'p1', revenueCents: 2990, paidCount: 1 },
+    ]);
+
+    const from = new Date(0);
+    const to = new Date();
+    expect(await service.totals(from, to, 'p1')).toEqual({
+      paidCount: 1,
+      totalCount: 2,
+      revenueCents: 2990,
+    });
+    expect(await service.revenueByProject(from, to)).toHaveLength(1);
+    expect(sales.totals).toHaveBeenCalledWith(from, to, 'p1');
+  });
 });

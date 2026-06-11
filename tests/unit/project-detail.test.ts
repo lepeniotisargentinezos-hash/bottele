@@ -50,6 +50,12 @@ function buildService() {
         { project: 'creditoaprova.xyz', hostname: 'creditoaprova.xyz', daysRemaining: 45 },
       ]),
   };
+  const sales = {
+    totals: vi
+      .fn()
+      .mockResolvedValueOnce({ paidCount: 3, totalCount: 5, revenueCents: 8970 })
+      .mockResolvedValueOnce({ paidCount: 20, totalCount: 40, revenueCents: 59800 }),
+  };
 
   const service = new ProjectDetailService(
     vercel as never,
@@ -61,6 +67,7 @@ function buildService() {
     analytics as never,
     externalMonitor as never,
     ssl as never,
+    sales as never,
     logger,
   );
   return { service };
@@ -96,6 +103,7 @@ describe('ProjectDetailService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       logger,
     );
     expect(await service.build('inexistente')).toBeNull();
@@ -124,6 +132,9 @@ describe('ProjectDetailService', () => {
     };
     const externalMonitor = { inspect: vi.fn().mockResolvedValue([]) };
     const ssl = { statusForAll: vi.fn().mockResolvedValue([]) };
+    const sales = {
+      totals: vi.fn().mockResolvedValue({ paidCount: 0, totalCount: 0, revenueCents: 0 }),
+    };
 
     const service = new ProjectDetailService(
       vercel as never,
@@ -135,6 +146,7 @@ describe('ProjectDetailService', () => {
       analytics as never,
       externalMonitor as never,
       ssl as never,
+      sales as never,
       logger,
     );
 
@@ -181,6 +193,10 @@ describe('buildProjectCard', () => {
       pageViewsToday: 20,
       visitors7d: 70,
       pageViews7d: 140,
+      revenueCentsToday: 8970,
+      paidCountToday: 3,
+      revenueCents7d: 59800,
+      paidCount7d: 20,
       topPages: [{ label: '/', count: 50 }],
       recentDeploys: [
         { state: 'READY' as const, branch: 'main', createdAt: new Date('2026-06-11T08:00:00Z') },
@@ -194,6 +210,8 @@ describe('buildProjectCard', () => {
     expect(text).toContain('💳 Gateway: Conta 1');
     expect(text).toContain('🔐 SSL: 30');
     expect(text).toContain('Top páginas');
+    expect(text).toContain('R$'); // receita
+    expect(text).toContain('Conversão');
     expect(text).toContain('ANUBISPAY_PUBLIC_KEY');
     // Botões: Atualizar, Rollback, Abrir site, Voltar.
     const labels = keyboard.inline_keyboard.flat().map((b) => b.text);
@@ -217,6 +235,10 @@ describe('buildProjectCard', () => {
       pageViewsToday: 0,
       visitors7d: 0,
       pageViews7d: 0,
+      revenueCentsToday: 0,
+      paidCountToday: 0,
+      revenueCents7d: 0,
+      paidCount7d: 0,
       topPages: [],
       recentDeploys: [],
       openIncidents: ['DOWNTIME'],
