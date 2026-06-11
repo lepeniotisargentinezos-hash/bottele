@@ -32,6 +32,23 @@ export const uptimeCommand: BotCommand = {
     ]);
     const downtime = formatDuration(globalDowntimeMs);
 
+    // Certificados SSL expirando nos próximos 30 dias.
+    const sslRows = await deps.ssl.statusForAll();
+    const expiringSoon = sslRows
+      .filter((row) => row.daysRemaining <= 30)
+      .sort((a, b) => a.daysRemaining - b.daysRemaining);
+
+    const sslLines =
+      expiringSoon.length > 0
+        ? [
+            '',
+            '🔐 <b>SSL expirando (≤30 dias)</b>',
+            ...expiringSoon.map(
+              (row) => `• ${escapeHtml(row.project)}: ${row.daysRemaining} dia(s)`,
+            ),
+          ]
+        : [];
+
     await ctx.reply(
       [
         '🔋 <b>Disponibilidade — últimas 24h</b>',
@@ -40,6 +57,7 @@ export const uptimeCommand: BotCommand = {
         '',
         `Global: <b>${formatPercent(globalPercent)}</b>`,
         `Tempo total offline: ${downtime}`,
+        ...sslLines,
       ].join('\n'),
       { parse_mode: 'HTML' },
     );

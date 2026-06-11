@@ -65,6 +65,29 @@ export class StatusService {
     };
   }
 
+  /** Status por projeto para a página pública (/status). */
+  async projectsStatus(): Promise<Array<{ name: string; up: boolean; uptimePercent: number }>> {
+    const since = new Date(Date.now() - DAY_MS);
+    const [projects, openIncidents] = await Promise.all([
+      this.projects.findAllActive(),
+      this.incidents.listOpen(),
+    ]);
+    const downProjectIds = new Set(
+      openIncidents.filter((i) => i.type === 'DOWNTIME').map((i) => i.projectId),
+    );
+
+    const result: Array<{ name: string; up: boolean; uptimePercent: number }> = [];
+    for (const project of projects) {
+      const stats = await this.uptime.statsFor(project.id, project.name, since);
+      result.push({
+        name: project.name,
+        up: !downProjectIds.has(project.id),
+        uptimePercent: stats.uptimePercent,
+      });
+    }
+    return result;
+  }
+
   async health(): Promise<HealthReport> {
     const [database, vercelApi] = await Promise.all([this.checkDatabase(), this.vercel.ping()]);
     return {

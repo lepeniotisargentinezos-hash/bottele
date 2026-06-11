@@ -8,6 +8,10 @@ import { performanceCommand } from './performance.command';
 import { uptimeCommand } from './uptime.command';
 import { reportCommand } from './report.command';
 import { healthCommand } from './health.command';
+import { settingsCommand } from './settings.command';
+import { rollbackCommand } from './rollback.command';
+import { logsCommand } from './logs.command';
+import { checkCommand } from './check.command';
 import type { BotCommand } from './types';
 
 export type { BotCommand, CommandDependencies } from './types';
@@ -23,4 +27,8 @@ export const allCommands: BotCommand[] = [
   uptimeCommand,
   reportCommand,
   healthCommand,
+  settingsCommand,
+  rollbackCommand,
+  logsCommand,
+  checkCommand,
 ];

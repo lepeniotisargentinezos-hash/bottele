@@ -25,6 +25,7 @@ function buildService(checkResult: UptimeCheckResult, openIncident: unknown = nu
   const notifier = { send: vi.fn().mockResolvedValue(true) };
   const settings = {
     getAlertSettings: vi.fn().mockResolvedValue({ downtime: true }),
+    getProjectCheck: vi.fn().mockResolvedValue({ extraUrls: [] }),
   };
   const checker: HttpChecker = { check: vi.fn().mockResolvedValue(checkResult) };
 

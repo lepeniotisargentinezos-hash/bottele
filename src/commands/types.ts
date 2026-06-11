@@ -2,9 +2,11 @@ import type { Context } from 'grammy';
 import type { Env } from '../config/env';
 import type { Logger } from '../utils/logger';
 import type {
+  DeployActionsService,
   PerformanceService,
   ReportService,
   SettingsService,
+  SslService,
   StatusService,
   UptimeService,
 } from '../services';
@@ -25,6 +27,8 @@ export interface CommandDependencies {
   reports: ReportService;
   status: StatusService;
   settings: SettingsService;
+  deployActions: DeployActionsService;
+  ssl: SslService;
 }
 
 export interface BotCommand {

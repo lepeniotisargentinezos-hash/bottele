@@ -48,6 +48,30 @@ describe('FetchHttpChecker', () => {
     expect(result.errorType).toBe('TIMEOUT');
   });
 
+  it('falha quando o texto esperado não está no corpo (erro silencioso)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<html>Application error</html>', { status: 200 })),
+    );
+    const checker = new FetchHttpChecker();
+
+    const result = await checker.check('https://example.com', 5000, 'Minha Loja');
+
+    expect(result.success).toBe(false);
+    expect(result.errorType).toBe('CONTENT_MISMATCH');
+  });
+
+  it('passa quando o texto esperado está presente', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(new Response('<html><h1>Minha Loja</h1></html>', { status: 200 })),
+    );
+    const checker = new FetchHttpChecker();
+
+    const result = await checker.check('https://example.com', 5000, 'Minha Loja');
+    expect(result.success).toBe(true);
+  });
+
   it('detecta DNS inválido', async () => {
     const cause = new Error('getaddrinfo ENOTFOUND nao-existe.example');
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('fetch failed', { cause })));

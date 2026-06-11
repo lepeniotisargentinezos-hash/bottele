@@ -22,8 +22,16 @@ export interface UptimeCheckResult {
   success: boolean;
   statusCode: number | null;
   responseTimeMs: number;
-  errorType: 'HTTP_ERROR' | 'TIMEOUT' | 'DNS_ERROR' | 'NETWORK_ERROR' | null;
+  errorType: 'HTTP_ERROR' | 'TIMEOUT' | 'DNS_ERROR' | 'NETWORK_ERROR' | 'CONTENT_MISMATCH' | null;
   reason: string | null;
+}
+
+/** Configuração de monitoramento por projeto (persistida em settings). */
+export interface ProjectCheckConfig {
+  /** Texto que deve estar presente no corpo da home (detecta erros "silenciosos"). */
+  expectedText?: string;
+  /** URLs extras para monitorar além da home (ex.: /api/health). */
+  extraUrls: string[];
 }
 
 export interface AccountOverview {

@@ -5,6 +5,7 @@ import type {
   PerformanceService,
   ProjectSyncService,
   ReportService,
+  SslService,
   UptimeService,
 } from '../services';
 import type { MetricRepository } from '../database/repositories/metric.repository';
@@ -22,6 +23,7 @@ export interface JobDependencies {
   uptime: UptimeService;
   performance: PerformanceService;
   reports: ReportService;
+  ssl: SslService;
   metricRepository: MetricRepository;
 }
 
@@ -55,6 +57,9 @@ export function buildJobs(deps: JobDependencies): { registry: JobRegistry; sched
   registry.register('weekly-report', `0 ${env.REPORT_HOUR} * * 1`, () =>
     deps.reports.sendWeeklyReport(),
   );
+
+  // Certificados TLS mudam devagar — uma verificação diária basta.
+  registry.register('ssl-check', `0 ${env.REPORT_HOUR} * * *`, () => deps.ssl.checkAll());
 
   registry.register('prune-metrics', '30 3 * * *', async () => {
     const cutoff = new Date(Date.now() - METRIC_RETENTION_DAYS * 24 * 60 * 60 * 1000);

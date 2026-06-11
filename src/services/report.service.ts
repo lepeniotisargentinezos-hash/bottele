@@ -3,8 +3,10 @@ import type { DeploymentRepository } from '../database/repositories/deployment.r
 import type { IncidentRepository } from '../database/repositories/incident.repository';
 import type { TelegramNotifier } from '../integrations/telegram/notifier';
 import type { UptimeService } from './uptime.service';
+import type { PerformanceService } from './performance.service';
 import type { DailyReportData, WeeklyReportData } from '../types';
 import { formatDuration, formatPercent } from '../utils/format';
+import { latencyChartUrl } from '../utils/charts';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const WEEK_MS = 7 * DAY_MS;
@@ -16,6 +18,7 @@ export class ReportService {
     private readonly deployments: DeploymentRepository,
     private readonly incidents: IncidentRepository,
     private readonly uptime: UptimeService,
+    private readonly performance: PerformanceService,
     private readonly notifier: TelegramNotifier,
   ) {}
 
@@ -62,6 +65,14 @@ export class ReportService {
   async sendDailyReport(): Promise<void> {
     const data = await this.buildDailyReport();
     await this.notifier.send('DAILY_REPORT', this.formatDailyReport(data));
+
+    // Gráfico de latência por projeto (24h), quando há métricas coletadas.
+    const since = new Date(data.date.getTime() - DAY_MS);
+    const stats = await this.performance.statsForAll(since);
+    const chartUrl = latencyChartUrl(stats);
+    if (chartUrl) {
+      await this.notifier.sendPhoto(chartUrl, '⚡ Latência por projeto (24h)');
+    }
   }
 
   async buildWeeklyReport(now = new Date()): Promise<WeeklyReportData> {

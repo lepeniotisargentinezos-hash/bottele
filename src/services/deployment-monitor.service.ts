@@ -148,6 +148,13 @@ export class DeploymentMonitorService {
     const message = buildDeployFailureMessage(projectName, deployment, errorReason);
     const sent = await this.notifier.send('DEPLOY_FAILED', message, {
       payload: { deploymentId, projectName, state: deployment.state },
+      buttons:
+        deployment.state === 'ERROR'
+          ? [
+              { text: '🔄 Redeploy', action: `redeploy:${deploymentId}` },
+              { text: '📜 Ver logs', action: `logs:${deploymentId}` },
+            ]
+          : undefined,
     });
 
     if (sent) {

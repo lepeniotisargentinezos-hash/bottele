@@ -1,6 +1,7 @@
 import { Bot, type Context } from 'grammy';
 import { allCommands, type CommandDependencies } from '../commands';
 import { createAuthMiddleware, createRateLimitMiddleware } from '../middleware';
+import { registerCallbacks } from './callbacks';
 import type { UserRepository } from '../database/repositories/user.repository';
 import { toErrorMessage } from '../utils/errors';
 import type { Logger } from '../utils/logger';
@@ -41,6 +42,9 @@ export function createBot(options: CreateBotOptions): Bot {
       }
     });
   }
+
+  // Botões inline (redeploy, logs, rollback, recheck, settings).
+  registerCallbacks(bot, options.commandDependencies);
 
   // Tratamento global de erros do bot (updates malformados, falhas de rede etc.).
   bot.catch((error) => {

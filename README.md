@@ -8,7 +8,11 @@ Bot do Telegram para monitoramento completo de uma conta Vercel: deployments, di
 - 🚨 **Monitoramento de deployments** — alerta imediato em falhas e cancelamentos, com branch, commit, autor e motivo do erro extraído dos logs de build.
 - 🔴 **Monitoramento de disponibilidade** — verifica os domínios de produção a cada 5 minutos (HTTP 5xx, timeout, DNS inválido) e avisa na queda e na recuperação (com duração da indisponibilidade).
 - ⚡ **Performance** — latência média, P95 e P99 com thresholds configuráveis e alertas de degradação/normalização.
-- 📊 **Relatórios** — relatório diário às 08:00 e resumo semanal com deploys, falhas, incidentes, tempo offline e disponibilidade.
+- 🔐 **Monitor de SSL** — verifica os certificados TLS dos domínios e avisa 14/7/3/1 dias antes de expirar (conexão direta, sem depender da Vercel).
+- 🎮 **Ações pela conversa** — alertas de falha trazem botões inline: **Redeploy** e **Ver logs**; alertas de queda trazem **Checar agora**. Comandos `/rollback` (reverte produção), `/logs` e `/settings` interativo.
+- 🔍 **Checagem de conteúdo + URLs extras** — além do status HTTP, valida que a página contém um texto esperado (pega erros "silenciosos") e monitora endpoints adicionais (ex.: `/api/health`) por projeto.
+- 📊 **Relatórios** — relatório diário às 08:00 (com gráfico de latência por projeto via QuickChart) e resumo semanal com deploys, falhas, incidentes, tempo offline e disponibilidade.
+- 🌐 **Status page pública** — `GET /status` serve uma página compartilhável com o estado de cada projeto.
 
 > **Web Analytics não incluído.** A Vercel não expõe os dados de Web Analytics
 > por API REST (apenas via cookie de sessão do dashboard), então o monitor não
@@ -142,9 +146,13 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `/deploys` | Últimos 10 deployments |
 | `/errors` | Incidentes abertos + falhas de deploy dos últimos 7 dias |
 | `/performance` | Latência média, P95 e P99 por projeto (24h) |
-| `/uptime` | Disponibilidade por projeto e global (24h) |
+| `/uptime` | Disponibilidade por projeto, global e SSL expirando |
 | `/report` | Gera o relatório diário sob demanda |
 | `/health` | Saúde interna (DB, API Vercel, estado dos jobs) |
+| `/rollback [projeto]` | Reverte a produção para o deploy anterior (com confirmação) |
+| `/logs <projeto>` | Logs de build do deploy mais recente |
+| `/check <projeto>` | Configura texto esperado e URLs extras de monitoramento |
+| `/settings` | Menu interativo de alertas e thresholds |
 
 ## Jobs agendados
 
@@ -154,14 +162,16 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `monitor-deployments` | a cada 1 min | Detecta deploys concluídos/falhados/cancelados |
 | `uptime-check` | a cada 5 min | Verifica disponibilidade dos domínios |
 | `performance-evaluation` | a cada 5 min | Avalia thresholds de latência |
-| `daily-report` | 08:00 | Relatório diário |
+| `daily-report` | 08:00 | Relatório diário (com gráfico de latência) |
 | `weekly-report` | segunda 08:00 | Relatório semanal |
+| `ssl-check` | 08:00 | Verifica expiração dos certificados TLS |
 | `prune-metrics` | 03:30 | Retenção de métricas (90 dias) |
 
 ## Observabilidade
 
 - `GET /health` → `{"status":"ok"}` (200) ou `{"status":"degraded"}` (503)
 - `GET /metrics` → uptime do processo, estado de DB/API Vercel e estatísticas de cada job (execuções, falhas, último erro)
+- `GET /status` → status page pública (HTML) com o estado e o uptime de cada projeto
 - Logs estruturados JSON em produção (pino), com redação automática de tokens
 
 ## Testes

@@ -11,12 +11,12 @@ import type { Logger } from '../utils/logger';
 const MONITORED_ERROR_STATUSES = [500, 502, 503, 504];
 
 export interface HttpChecker {
-  check(url: string, timeoutMs: number): Promise<UptimeCheckResult>;
+  check(url: string, timeoutMs: number, expectedText?: string): Promise<UptimeCheckResult>;
 }
 
 /** Implementação real do verificador HTTP usando fetch nativo do Node 22. */
 export class FetchHttpChecker implements HttpChecker {
-  async check(url: string, timeoutMs: number): Promise<UptimeCheckResult> {
+  async check(url: string, timeoutMs: number, expectedText?: string): Promise<UptimeCheckResult> {
     const startedAt = performance.now();
     try {
       const response = await fetch(url, {
@@ -28,13 +28,39 @@ export class FetchHttpChecker implements HttpChecker {
       const responseTimeMs = Math.round(performance.now() - startedAt);
 
       const isServerError = MONITORED_ERROR_STATUSES.includes(response.status);
+      if (isServerError) {
+        return {
+          url,
+          success: false,
+          statusCode: response.status,
+          responseTimeMs,
+          errorType: 'HTTP_ERROR',
+          reason: `HTTP ${response.status}`,
+        };
+      }
+
+      // Checagem de conteúdo: detecta páginas que respondem 200 mas estão quebradas.
+      if (expectedText) {
+        const body = await response.text();
+        if (!body.includes(expectedText)) {
+          return {
+            url,
+            success: false,
+            statusCode: response.status,
+            responseTimeMs: Math.round(performance.now() - startedAt),
+            errorType: 'CONTENT_MISMATCH',
+            reason: `Texto esperado ausente: "${expectedText.slice(0, 50)}"`,
+          };
+        }
+      }
+
       return {
         url,
-        success: !isServerError,
+        success: true,
         statusCode: response.status,
         responseTimeMs,
-        errorType: isServerError ? 'HTTP_ERROR' : null,
-        reason: isServerError ? `HTTP ${response.status}` : null,
+        errorType: null,
+        reason: null,
       };
     } catch (error) {
       const responseTimeMs = Math.round(performance.now() - startedAt);
@@ -67,9 +93,9 @@ export function classifyFetchError(error: unknown): {
 }
 
 /**
- * Verifica disponibilidade dos domínios de produção de cada projeto,
- * grava métricas e gerencia o ciclo de vida de incidentes de downtime
- * (alerta na queda, alerta na recuperação com duração).
+ * Verifica disponibilidade dos domínios de produção de cada projeto
+ * (home + URLs extras configuradas + checagem de conteúdo opcional),
+ * grava métricas e gerencia o ciclo de vida de incidentes de downtime.
  */
 export class UptimeService {
   constructor(
@@ -88,22 +114,29 @@ export class UptimeService {
     const alertSettings = await this.settings.getAlertSettings();
 
     for (const project of projects) {
-      const url = project.productionUrl;
-      if (!url) continue;
+      if (!project.productionUrl) continue;
 
       try {
-        const result = await this.checker.check(url, this.timeoutMs);
+        const config = await this.settings.getProjectCheck(project.id);
+        const urls = [project.productionUrl, ...config.extraUrls];
 
-        await this.metrics.create({
-          projectId: project.id,
-          url: result.url,
-          statusCode: result.statusCode,
-          responseTimeMs: result.responseTimeMs,
-          success: result.success,
-          errorType: result.errorType,
-        });
+        const results: UptimeCheckResult[] = [];
+        for (const url of urls) {
+          // A checagem de conteúdo só se aplica à home (primeira URL).
+          const expectedText = url === project.productionUrl ? config.expectedText : undefined;
+          const result = await this.checker.check(url, this.timeoutMs, expectedText);
+          results.push(result);
+          await this.metrics.create({
+            projectId: project.id,
+            url: result.url,
+            statusCode: result.statusCode,
+            responseTimeMs: result.responseTimeMs,
+            success: result.success,
+            errorType: result.errorType,
+          });
+        }
 
-        await this.reconcileIncident(project.id, project.name, result, alertSettings.downtime);
+        await this.reconcileIncident(project.id, project.name, results, alertSettings.downtime);
       } catch (error) {
         this.logger.error(
           { project: project.name, error: toErrorMessage(error) },
@@ -116,18 +149,19 @@ export class UptimeService {
   private async reconcileIncident(
     projectId: string,
     projectName: string,
-    result: UptimeCheckResult,
+    results: UptimeCheckResult[],
     notify: boolean,
   ): Promise<void> {
+    const failure = results.find((r) => !r.success);
     const openIncident = await this.incidents.findOpen(projectId, 'DOWNTIME');
 
-    if (!result.success && !openIncident) {
+    if (failure && !openIncident) {
       await this.incidents.open({
         projectId,
         type: 'DOWNTIME',
-        url: result.url,
-        httpStatus: result.statusCode ?? undefined,
-        reason: result.reason ?? undefined,
+        url: failure.url,
+        httpStatus: failure.statusCode ?? undefined,
+        reason: failure.reason ?? undefined,
       });
 
       if (notify) {
@@ -137,17 +171,20 @@ export class UptimeService {
             '🔴 <b>SITE FORA DO AR</b>',
             '',
             `Projeto: <b>${escapeHtml(projectName)}</b>`,
-            `URL: ${escapeHtml(result.url)}`,
+            `URL: ${escapeHtml(failure.url)}`,
             '',
-            `Status: ${result.statusCode ?? escapeHtml(result.reason ?? 'erro desconhecido')}`,
+            `Status: ${failure.statusCode ?? escapeHtml(failure.reason ?? 'erro desconhecido')}`,
           ].join('\n'),
-          { payload: { projectId, url: result.url, status: result.statusCode } },
+          {
+            payload: { projectId, url: failure.url, status: failure.statusCode },
+            buttons: [{ text: '🔍 Checar agora', action: `recheck:${projectId}` }],
+          },
         );
       }
       return;
     }
 
-    if (result.success && openIncident) {
+    if (!failure && openIncident) {
       const resolved = await this.incidents.resolve(openIncident.id);
       const downtimeMs =
         (resolved.resolvedAt?.getTime() ?? Date.now()) - resolved.startedAt.getTime();
@@ -159,7 +196,7 @@ export class UptimeService {
             '🟢 <b>SERVIÇO RESTABELECIDO</b>',
             '',
             `Projeto: <b>${escapeHtml(projectName)}</b>`,
-            `URL: ${escapeHtml(result.url)}`,
+            `URL: ${escapeHtml(openIncident.url ?? projectName)}`,
             '',
             `Tempo de indisponibilidade: ${formatDuration(downtimeMs)}`,
           ].join('\n'),
@@ -167,6 +204,20 @@ export class UptimeService {
         );
       }
     }
+  }
+
+  /** Re-checa um projeto sob demanda (botão "Checar agora"). Retorna o resumo. */
+  async recheckProject(projectId: string): Promise<UptimeCheckResult[]> {
+    const project = await this.projects.findById(projectId);
+    if (!project?.productionUrl) return [];
+    const config = await this.settings.getProjectCheck(projectId);
+    const urls = [project.productionUrl, ...config.extraUrls];
+    const results: UptimeCheckResult[] = [];
+    for (const url of urls) {
+      const expectedText = url === project.productionUrl ? config.expectedText : undefined;
+      results.push(await this.checker.check(url, this.timeoutMs, expectedText));
+    }
+    return results;
   }
 
   async statsFor(projectId: string, projectName: string, since: Date): Promise<UptimeStats> {

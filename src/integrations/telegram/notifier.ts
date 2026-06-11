@@ -1,4 +1,4 @@
-import { Api } from 'grammy';
+import { Api, InlineKeyboard } from 'grammy';
 import type { NotificationType, Prisma } from '@prisma/client';
 import type { NotificationRepository } from '../../database/repositories/notification.repository';
 import { truncateMessage } from '../../utils/format';
@@ -10,6 +10,29 @@ export interface TelegramNotifierOptions {
   defaultChatId: string;
   notificationRepository: NotificationRepository;
   logger: Logger;
+}
+
+/** Botão inline: `action` vira o callback_data tratado em src/bot/callbacks.ts. */
+export interface NotifierButton {
+  text: string;
+  action: string;
+}
+
+interface SendOptions {
+  chatId?: string;
+  payload?: Record<string, unknown>;
+  buttons?: NotifierButton[];
+}
+
+function buildKeyboard(buttons?: NotifierButton[]): InlineKeyboard | undefined {
+  if (!buttons || buttons.length === 0) return undefined;
+  const keyboard = new InlineKeyboard();
+  buttons.forEach((button, index) => {
+    keyboard.text(button.text, button.action);
+    // Dois botões por linha mantém a leitura confortável no mobile.
+    if (index % 2 === 1) keyboard.row();
+  });
+  return keyboard;
 }
 
 /**
@@ -37,7 +60,7 @@ export class TelegramNotifier {
   async sendTracked(
     type: NotificationType,
     text: string,
-    options: { chatId?: string; payload?: Record<string, unknown> } = {},
+    options: SendOptions = {},
   ): Promise<number | null> {
     const chatId = options.chatId ?? this.defaultChatId;
     const message = truncateMessage(text);
@@ -46,6 +69,7 @@ export class TelegramNotifier {
       const sent = await this.api.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
+        reply_markup: buildKeyboard(options.buttons),
       });
       await this.safeRecord(chatId, type, true, options.payload);
       return sent.message_id;
@@ -75,11 +99,7 @@ export class TelegramNotifier {
     }
   }
 
-  async send(
-    type: NotificationType,
-    text: string,
-    options: { chatId?: string; payload?: Record<string, unknown> } = {},
-  ): Promise<boolean> {
+  async send(type: NotificationType, text: string, options: SendOptions = {}): Promise<boolean> {
     const chatId = options.chatId ?? this.defaultChatId;
     const message = truncateMessage(text);
 
@@ -87,6 +107,7 @@ export class TelegramNotifier {
       await this.api.sendMessage(chatId, message, {
         parse_mode: 'HTML',
         link_preview_options: { is_disabled: true },
+        reply_markup: buildKeyboard(options.buttons),
       });
       await this.safeRecord(chatId, type, true, options.payload);
       return true;
@@ -94,6 +115,21 @@ export class TelegramNotifier {
       const errorMessage = toErrorMessage(error);
       this.logger.error({ type, chatId, error: errorMessage }, 'Falha ao enviar notificação');
       await this.safeRecord(chatId, type, false, options.payload, errorMessage);
+      return false;
+    }
+  }
+
+  /** Envia uma imagem (ex.: gráfico do QuickChart) por URL. Falha silenciosa. */
+  async sendPhoto(photoUrl: string, caption?: string, chatId?: string): Promise<boolean> {
+    const targetChatId = chatId ?? this.defaultChatId;
+    try {
+      await this.api.sendPhoto(targetChatId, photoUrl, {
+        caption: caption ? truncateMessage(caption, 1024) : undefined,
+        parse_mode: 'HTML',
+      });
+      return true;
+    } catch (error) {
+      this.logger.warn({ error: toErrorMessage(error) }, 'Falha ao enviar imagem');
       return false;
     }
   }

@@ -54,17 +54,21 @@ export class VercelClient {
   private async request<T>(
     path: string,
     params: Record<string, string | number | undefined> = {},
+    options: { method?: 'GET' | 'POST'; body?: unknown } = {},
   ): Promise<T> {
     const url = this.buildUrl(path, params);
+    const method = options.method ?? 'GET';
 
     let lastError: unknown;
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
         const response = await this.fetchFn(url, {
+          method,
           headers: {
             Authorization: `Bearer ${this.token}`,
             'Content-Type': 'application/json',
           },
+          body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
         });
 
         if (response.ok) {
@@ -136,6 +140,48 @@ export class VercelClient {
     return this.request<VercelDeployment>(`/v13/deployments/${deploymentId}`);
   }
 
+  /** Deployments de produção em estado READY, do mais recente para o mais antigo. */
+  async listReadyProductionDeployments(projectId: string, limit = 20): Promise<VercelDeployment[]> {
+    const response = await this.request<VercelDeploymentsResponse>('/v6/deployments', {
+      projectId,
+      target: 'production',
+      state: 'READY',
+      limit,
+    });
+    return response.deployments;
+  }
+
+  /**
+   * Recria um deployment a partir de um anterior (mesmo commit/git source).
+   * Equivale ao botão "Redeploy" do dashboard.
+   */
+  async redeploy(
+    projectName: string,
+    deploymentId: string,
+    target: string | null,
+  ): Promise<VercelDeployment> {
+    return this.request<VercelDeployment>(
+      '/v13/deployments',
+      {},
+      {
+        method: 'POST',
+        body: { name: projectName, deploymentId, target: target ?? 'production' },
+      },
+    );
+  }
+
+  /**
+   * Reverte a produção para um deployment anterior (Instant Rollback).
+   * `deploymentId` é o deployment estável para onde o tráfego deve voltar.
+   */
+  async rollback(projectId: string, deploymentId: string): Promise<void> {
+    await this.request(
+      `/v9/projects/${projectId}/rollback/${deploymentId}`,
+      {},
+      { method: 'POST', body: {} },
+    );
+  }
+
   /** Eventos de build de um deployment — usado para extrair o motivo de falhas. */
   async getDeploymentEvents(deploymentId: string): Promise<VercelDeploymentEvent[]> {
     return this.request<VercelDeploymentEvent[]>(`/v3/deployments/${deploymentId}/events`, {
@@ -162,6 +208,22 @@ export class VercelClient {
       return errorLines.slice(-10).join('\n');
     } catch (error) {
       this.logger.warn({ deploymentId, error }, 'Não foi possível obter eventos do deployment');
+      return null;
+    }
+  }
+
+  /** Últimas `lines` linhas de log de build (stdout/stderr/error), em ordem cronológica. */
+  async getBuildLogsTail(deploymentId: string, lines = 30): Promise<string | null> {
+    try {
+      const events = await this.getDeploymentEvents(deploymentId);
+      const logLines = events
+        .filter((event) => ['stdout', 'stderr', 'error', 'fatal'].includes(event.type))
+        .map((event) => event.payload?.text)
+        .filter((text): text is string => Boolean(text));
+      if (logLines.length === 0) return null;
+      return logLines.slice(-lines).join('\n');
+    } catch (error) {
+      this.logger.warn({ deploymentId, error }, 'Não foi possível obter logs do deployment');
       return null;
     }
   }

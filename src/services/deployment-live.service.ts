@@ -235,7 +235,16 @@ export class DeploymentLiveService {
     const sent = await this.notifier.send(
       'DEPLOY_FAILED',
       buildDeployFailureMessage(name, stored, errorReason),
-      { payload: { deploymentId: deployment.id, projectName: name, state, source: 'webhook' } },
+      {
+        payload: { deploymentId: deployment.id, projectName: name, state, source: 'webhook' },
+        buttons:
+          state === 'ERROR'
+            ? [
+                { text: '🔄 Redeploy', action: `redeploy:${deployment.id}` },
+                { text: '📜 Ver logs', action: `logs:${deployment.id}` },
+              ]
+            : undefined,
+      },
     );
 
     if (sent) {

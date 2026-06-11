@@ -13,17 +13,22 @@ function buildService() {
     totalDowntimeMsSince: vi.fn().mockResolvedValue(12 * 60_000),
   };
   const uptime = { globalUptimePercent: vi.fn().mockResolvedValue(99.98) };
-  const notifier = { send: vi.fn().mockResolvedValue(true) };
+  const performance = { statsForAll: vi.fn().mockResolvedValue([]) };
+  const notifier = {
+    send: vi.fn().mockResolvedValue(true),
+    sendPhoto: vi.fn().mockResolvedValue(true),
+  };
 
   const service = new ReportService(
     projects as never,
     deployments as never,
     incidents as never,
     uptime as never,
+    performance as never,
     notifier as never,
   );
 
-  return { service, notifier };
+  return { service, notifier, performance };
 }
 
 describe('ReportService', () => {

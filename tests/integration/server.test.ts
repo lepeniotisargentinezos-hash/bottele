@@ -73,6 +73,25 @@ describe('HTTP server (integração)', () => {
     await server.close();
   });
 
+  it('GET /status renderiza a página pública em HTML', async () => {
+    const statusService = {
+      health: vi.fn().mockResolvedValue(healthyReport),
+      projectsStatus: vi.fn().mockResolvedValue([
+        { name: 'app-online', up: true, uptimePercent: 100 },
+        { name: 'app-offline', up: false, uptimePercent: 80 },
+      ]),
+    };
+    const server = await buildServer({ statusService: statusService as never, logger });
+
+    const response = await server.inject({ method: 'GET', url: '/status' });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['content-type']).toContain('text/html');
+    expect(response.body).toContain('app-online');
+    expect(response.body).toContain('Instabilidade detectada');
+    await server.close();
+  });
+
   it('rota inexistente responde 404', async () => {
     const server = await buildServer({
       statusService: buildStatusService(healthyReport) as never,

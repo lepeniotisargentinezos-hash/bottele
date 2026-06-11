@@ -15,6 +15,7 @@ import {
 import { VercelClient } from './integrations/vercel';
 import { TelegramNotifier } from './integrations/telegram';
 import {
+  DeployActionsService,
   DeploymentLiveService,
   DeploymentMonitorService,
   FetchHttpChecker,
@@ -22,7 +23,9 @@ import {
   ProjectSyncService,
   ReportService,
   SettingsService,
+  SslService,
   StatusService,
+  TlsCertificateChecker,
   UptimeService,
 } from './services';
 import { buildJobs, type JobRegistry, type Scheduler } from './jobs';
@@ -119,7 +122,22 @@ export function buildContainer(): Container {
     deploymentRepository,
     incidentRepository,
     uptimeService,
+    performanceService,
     notifier,
+  );
+  const deployActions = new DeployActionsService(
+    vercel,
+    deploymentRepository,
+    projectRepository,
+    logger,
+  );
+  const sslService = new SslService(
+    projectRepository,
+    settingsRepository,
+    notifier,
+    new TlsCertificateChecker(),
+    env.HTTP_TIMEOUT_MS,
+    logger,
   );
 
   // Jobs
@@ -131,6 +149,7 @@ export function buildContainer(): Container {
     uptime: uptimeService,
     performance: performanceService,
     reports: reportService,
+    ssl: sslService,
     metricRepository,
   });
 
@@ -156,6 +175,8 @@ export function buildContainer(): Container {
     reports: reportService,
     status: statusService,
     settings: settingsService,
+    deployActions,
+    ssl: sslService,
   };
 
   const configuredBot = createBot({

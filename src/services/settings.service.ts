@@ -1,8 +1,10 @@
+import type { Prisma } from '@prisma/client';
 import type { SettingsRepository } from '../database/repositories/settings.repository';
 import type { Env } from '../config/env';
-import type { AlertSettings } from '../types';
+import type { AlertSettings, ProjectCheckConfig } from '../types';
 
 const ALERT_SETTINGS_KEY = 'alert_settings';
+const PROJECT_CHECKS_KEY = 'project_checks';
 
 /**
  * Configurações de alerta persistidas no banco, com defaults vindos do ambiente.
@@ -36,6 +38,28 @@ export class SettingsService {
   async updateAlertSettings(patch: Partial<AlertSettings>): Promise<AlertSettings> {
     const merged = { ...(await this.getAlertSettings()), ...patch };
     await this.repository.set(ALERT_SETTINGS_KEY, merged);
+    return merged;
+  }
+
+  async getProjectChecks(): Promise<Record<string, ProjectCheckConfig>> {
+    return (
+      (await this.repository.get<Record<string, ProjectCheckConfig>>(PROJECT_CHECKS_KEY)) ?? {}
+    );
+  }
+
+  async getProjectCheck(projectId: string): Promise<ProjectCheckConfig> {
+    const all = await this.getProjectChecks();
+    return all[projectId] ?? { extraUrls: [] };
+  }
+
+  async updateProjectCheck(
+    projectId: string,
+    patch: Partial<ProjectCheckConfig>,
+  ): Promise<ProjectCheckConfig> {
+    const all = await this.getProjectChecks();
+    const merged: ProjectCheckConfig = { ...{ extraUrls: [] }, ...all[projectId], ...patch };
+    all[projectId] = merged;
+    await this.repository.set(PROJECT_CHECKS_KEY, all as unknown as Prisma.InputJsonValue);
     return merged;
   }
 }

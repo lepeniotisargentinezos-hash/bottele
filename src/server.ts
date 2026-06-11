@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import rateLimit from '@fastify/rate-limit';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { createHttpErrorHandler } from './middleware';
+import { renderStatusPage } from './status-page';
 import type { StatusService } from './services/status.service';
 import type { VercelWebhookEvent } from './services/deployment-live.service';
 import type { Logger } from './utils/logger';
@@ -39,6 +40,13 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
   server.get('/health', async (_request, reply) => {
     const health = await options.statusService.health();
     return reply.status(health.status === 'ok' ? 200 : 503).send({ status: health.status });
+  });
+
+  // Status page pública (HTML) — compartilhável com clientes.
+  server.get('/status', async (_request, reply) => {
+    const rows = await options.statusService.projectsStatus();
+    const html = renderStatusPage(rows, new Date().toISOString());
+    return reply.type('text/html').send(html);
   });
 
   server.get('/metrics', async () => {
