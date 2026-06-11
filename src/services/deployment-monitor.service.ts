@@ -15,6 +15,48 @@ import { env } from '../config/env';
 
 const FINAL_FAILURE_STATES: DeploymentState[] = ['ERROR', 'CANCELED'];
 
+export interface DeployFailureInfo {
+  state: DeploymentState;
+  branch: string | null;
+  commitSha: string | null;
+  commitMessage: string | null;
+  commitAuthor: string | null;
+  vercelCreatedAt: Date;
+  url: string | null;
+}
+
+/** Mensagem padrão de falha/cancelamento de deploy — usada pelo polling e pelos webhooks. */
+export function buildDeployFailureMessage(
+  projectName: string,
+  deployment: DeployFailureInfo,
+  errorReason: string | null,
+): string {
+  const isCanceled = deployment.state === 'CANCELED';
+  const title = isCanceled ? '⚠️ <b>DEPLOY CANCELADO</b>' : '🚨 <b>DEPLOY FALHOU</b>';
+
+  const lines = [
+    title,
+    '',
+    `Projeto: <b>${escapeHtml(projectName)}</b>`,
+    `Branch: ${escapeHtml(deployment.branch ?? 'n/d')}`,
+    `Commit: <code>${escapeHtml(shortSha(deployment.commitSha))}</code>`,
+    deployment.commitMessage ? `Mensagem: ${escapeHtml(deployment.commitMessage)}` : null,
+    `Autor: ${escapeHtml(deployment.commitAuthor ?? 'n/d')}`,
+    `Horário: ${formatDateTime(deployment.vercelCreatedAt, env.TZ)}`,
+    deployment.url ? `URL: ${escapeHtml(deployment.url)}` : null,
+  ].filter((line): line is string => line !== null);
+
+  if (!isCanceled) {
+    lines.push(
+      '',
+      'Erro:',
+      `<pre>${escapeHtml((errorReason ?? 'Motivo não disponível').slice(0, 1500))}</pre>`,
+    );
+  }
+
+  return lines.join('\n');
+}
+
 export function mapVercelDeployment(
   deployment: VercelDeployment,
   projectId: string,
@@ -103,30 +145,8 @@ export class DeploymentMonitorService {
       errorReason = await this.vercel.getDeploymentErrorReason(deploymentId);
     }
 
-    const isCanceled = deployment.state === 'CANCELED';
-    const title = isCanceled ? '⚠️ <b>DEPLOY CANCELADO</b>' : '🚨 <b>DEPLOY FALHOU</b>';
-
-    const lines = [
-      title,
-      '',
-      `Projeto: <b>${escapeHtml(projectName)}</b>`,
-      `Branch: ${escapeHtml(deployment.branch ?? 'n/d')}`,
-      `Commit: <code>${escapeHtml(shortSha(deployment.commitSha))}</code>`,
-      deployment.commitMessage ? `Mensagem: ${escapeHtml(deployment.commitMessage)}` : null,
-      `Autor: ${escapeHtml(deployment.commitAuthor ?? 'n/d')}`,
-      `Horário: ${formatDateTime(deployment.vercelCreatedAt, env.TZ)}`,
-      deployment.url ? `URL: ${escapeHtml(deployment.url)}` : null,
-    ].filter((line): line is string => line !== null);
-
-    if (!isCanceled) {
-      lines.push(
-        '',
-        'Erro:',
-        `<pre>${escapeHtml((errorReason ?? 'Motivo não disponível').slice(0, 1500))}</pre>`,
-      );
-    }
-
-    const sent = await this.notifier.send('DEPLOY_FAILED', lines.join('\n'), {
+    const message = buildDeployFailureMessage(projectName, deployment, errorReason);
+    const sent = await this.notifier.send('DEPLOY_FAILED', message, {
       payload: { deploymentId, projectName, state: deployment.state },
     });
 

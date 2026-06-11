@@ -17,6 +17,7 @@ import { VercelClient } from './integrations/vercel';
 import { TelegramNotifier } from './integrations/telegram';
 import {
   AnalyticsService,
+  DeploymentLiveService,
   DeploymentMonitorService,
   FetchHttpChecker,
   PerformanceService,
@@ -42,6 +43,7 @@ export interface Container {
   scheduler: Scheduler;
   projectSync: ProjectSyncService;
   statusService: StatusService;
+  deploymentLive: DeploymentLiveService;
 }
 
 export function buildContainer(): Container {
@@ -82,6 +84,14 @@ export function buildContainer(): Container {
     logger,
   );
   const deploymentMonitor = new DeploymentMonitorService(
+    vercel,
+    deploymentRepository,
+    projectRepository,
+    notifier,
+    settingsService,
+    logger,
+  );
+  const deploymentLive = new DeploymentLiveService(
     vercel,
     deploymentRepository,
     projectRepository,
@@ -175,5 +185,6 @@ export function buildContainer(): Container {
     scheduler,
     projectSync,
     statusService,
+    deploymentLive,
   };
 }

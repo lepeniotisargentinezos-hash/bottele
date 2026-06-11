@@ -30,6 +30,51 @@ export class TelegramNotifier {
     this.logger = options.logger;
   }
 
+  /**
+   * Envia uma mensagem e retorna o message_id do Telegram,
+   * permitindo edições posteriores (mensagens "vivas" de deploy).
+   */
+  async sendTracked(
+    type: NotificationType,
+    text: string,
+    options: { chatId?: string; payload?: Record<string, unknown> } = {},
+  ): Promise<number | null> {
+    const chatId = options.chatId ?? this.defaultChatId;
+    const message = truncateMessage(text);
+
+    try {
+      const sent = await this.api.sendMessage(chatId, message, {
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      });
+      await this.safeRecord(chatId, type, true, options.payload);
+      return sent.message_id;
+    } catch (error) {
+      const errorMessage = toErrorMessage(error);
+      this.logger.error({ type, chatId, error: errorMessage }, 'Falha ao enviar notificação');
+      await this.safeRecord(chatId, type, false, options.payload, errorMessage);
+      return null;
+    }
+  }
+
+  /** Edita uma mensagem já enviada (usada para atualizar o progresso de deploys). */
+  async edit(messageId: number, text: string, chatId?: string): Promise<boolean> {
+    const targetChatId = chatId ?? this.defaultChatId;
+    try {
+      await this.api.editMessageText(targetChatId, messageId, truncateMessage(text), {
+        parse_mode: 'HTML',
+        link_preview_options: { is_disabled: true },
+      });
+      return true;
+    } catch (error) {
+      this.logger.warn(
+        { messageId, error: toErrorMessage(error) },
+        'Falha ao editar mensagem; o conteúdo final pode ter sido enviado em nova mensagem',
+      );
+      return false;
+    }
+  }
+
   async send(
     type: NotificationType,
     text: string,

@@ -13,13 +13,22 @@ async function main(): Promise<void> {
   await container.prisma.$connect();
   logger.info('Conectado ao banco de dados');
 
-  // Servidor HTTP de observabilidade (/health, /metrics)
+  // Servidor HTTP: observabilidade (/health, /metrics) e webhooks da Vercel
   const server = await buildServer({
     statusService: container.statusService,
     logger,
+    webhook: env.VERCEL_WEBHOOK_SECRET
+      ? {
+          secret: env.VERCEL_WEBHOOK_SECRET,
+          handler: (event) => container.deploymentLive.handleEvent(event),
+        }
+      : undefined,
   });
   await server.listen({ port: env.PORT, host: '0.0.0.0' });
-  logger.info({ port: env.PORT }, 'Servidor HTTP no ar');
+  logger.info(
+    { port: env.PORT, webhooks: Boolean(env.VERCEL_WEBHOOK_SECRET) },
+    'Servidor HTTP no ar',
+  );
 
   // Sincronização inicial de projetos (sem alertar projetos pré-existentes no primeiro boot)
   try {

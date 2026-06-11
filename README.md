@@ -87,6 +87,22 @@ docker compose logs -f bot     # acompanhar logs
 docker compose down            # parar (dados preservados no volume)
 ```
 
+## Webhooks da Vercel (alertas instantâneos)
+
+Com o webhook configurado, falhas de deploy chegam em ~1 segundo (em vez de até 1 minuto do polling) e deploys de produção ganham uma **mensagem viva** no Telegram: "🔨 Deploy iniciado..." que é editada em tempo real até "✅ concluído" ou "🚨 falhou" (com duração). O polling continua ativo como backup — a deduplicação evita alertas em dobro.
+
+**Configuração:**
+
+1. Gere um domínio público para o serviço (no Railway: Settings → Networking → Generate Domain).
+2. No dashboard da Vercel: **Team Settings → Webhooks → Create Webhook**
+   - URL: `https://<seu-dominio>/webhooks/vercel`
+   - Eventos: `deployment.created`, `deployment.succeeded`, `deployment.error`, `deployment.canceled`
+   - Projetos: todos (ou os que quiser)
+3. Copie o **secret** exibido na criação e defina `VERCEL_WEBHOOK_SECRET` no ambiente.
+4. Redeploy. Sem o secret, a rota fica desativada e tudo segue via polling.
+
+A rota valida a assinatura `x-vercel-signature` (HMAC SHA-1 do corpo bruto) com comparação em tempo constante; requisições sem assinatura válida recebem 401.
+
 ## Variáveis de ambiente
 
 | Variável | Obrigatória | Default | Descrição |
@@ -95,6 +111,7 @@ docker compose down            # parar (dados preservados no volume)
 | `CHAT_ID` | ✅ | — | Chat autorizado a usar o bot e receber alertas |
 | `VERCEL_TOKEN` | ✅ | — | Token de acesso da Vercel |
 | `VERCEL_TEAM_ID` | — | — | ID do time (vazio = conta pessoal) |
+| `VERCEL_WEBHOOK_SECRET` | — | — | Secret do webhook (vazio = rota desativada, só polling) |
 | `DATABASE_URL` | ✅ | — | Connection string PostgreSQL |
 | `CHECK_INTERVAL_MINUTES` | — | `5` | Intervalo dos checks de disponibilidade |
 | `DEPLOY_POLL_INTERVAL_MINUTES` | — | `1` | Intervalo do polling de deployments |

@@ -15,6 +15,12 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v === '' ? undefined : v)),
+  // Secret do webhook criado no dashboard da Vercel (Settings → Webhooks).
+  // Quando ausente, a rota de webhook fica desativada e o polling cobre tudo.
+  VERCEL_WEBHOOK_SECRET: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatório'),
 
