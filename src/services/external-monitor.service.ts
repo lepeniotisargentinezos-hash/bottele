@@ -100,4 +100,42 @@ export class ExternalMonitorService {
       })),
     );
   }
+
+  /**
+   * Inspeciona cada monitor lendo o corpo JSON (ex.: o /api/health dos sites),
+   * extraindo o status e a conta do gateway. Usado pelo /overview para mostrar
+   * qual conta de pagamento cada domínio utiliza.
+   */
+  async inspect(): Promise<
+    Array<{ name: string; host: string; ok: boolean; account: string | null }>
+  > {
+    const monitors = await this.settings.getExternalMonitors();
+    return Promise.all(
+      monitors.map(async (monitor) => {
+        let host = monitor.url;
+        try {
+          host = new URL(monitor.url).hostname.replace(/^www\./, '').toLowerCase();
+        } catch {
+          // URL malformada — mantém o valor original.
+        }
+
+        try {
+          const response = await fetch(monitor.url, {
+            redirect: 'follow',
+            signal: AbortSignal.timeout(this.timeoutMs),
+          });
+          const data = (await response.json().catch(() => null)) as { account?: unknown } | null;
+          const account =
+            data && typeof data.account === 'string' && data.account ? data.account : null;
+          return { name: monitor.name, host, ok: response.ok, account };
+        } catch (error) {
+          this.logger.warn(
+            { monitor: monitor.name, error: toErrorMessage(error) },
+            'Falha ao inspecionar gateway',
+          );
+          return { name: monitor.name, host, ok: false, account: null };
+        }
+      }),
+    );
+  }
 }

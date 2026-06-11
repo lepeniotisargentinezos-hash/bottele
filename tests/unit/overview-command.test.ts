@@ -29,13 +29,11 @@ function buildDeps() {
       ]),
     },
     externalMonitor: {
-      liveStatus: vi.fn().mockResolvedValue([
-        {
-          name: 'pix-site-a',
-          url: 'https://www.site-a.com/api/health',
-          result: { success: true },
-        },
-      ]),
+      inspect: vi
+        .fn()
+        .mockResolvedValue([
+          { name: 'pix-site-a', host: 'site-a.com', ok: true, account: 'Conta Principal' },
+        ]),
     },
     analytics: {
       totalsByProject: vi
@@ -72,14 +70,15 @@ describe('/overview', () => {
     expect(message.indexOf('FORA DO AR')).toBeLessThan(message.indexOf('COM TRÁFEGO HOJE'));
     expect(message).toContain('⚠️ HTTP 503');
     expect(message).toContain('👥 50 visitantes · 120 views');
-    // Status do gateway ao lado do domínio com gateway monitorado.
-    expect(message).toContain('💳 ok');
+    // Conta do gateway ao lado do domínio e resumo de contas no topo.
+    expect(message).toContain('💳 Conta Principal');
+    expect(message).toContain('💳 Contas: Conta Principal ×1');
   });
 
   it('destaca gateway fora no topo e na linha do projeto', async () => {
     const deps = buildDeps();
-    deps.externalMonitor.liveStatus.mockResolvedValue([
-      { name: 'pix-site-a', url: 'https://www.site-a.com/api/health', result: { success: false } },
+    deps.externalMonitor.inspect.mockResolvedValue([
+      { name: 'pix-site-a', host: 'site-a.com', ok: false, account: 'Conta Principal' },
     ]);
     let message = '';
     const ctx = {

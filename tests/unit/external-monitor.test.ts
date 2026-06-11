@@ -89,4 +89,36 @@ describe('ExternalMonitorService', () => {
     expect(status[0]?.name).toBe('anubispay');
     expect(status[0]?.result.success).toBe(true);
   });
+
+  it('inspect extrai host, status e conta do corpo /api/health', async () => {
+    const { service } = build(ok);
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ ok: true, account: 'Conta Principal' }), { status: 200 }),
+        ),
+    );
+
+    const result = await service.inspect();
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({
+      name: 'anubispay',
+      host: 'api.anubispay.com',
+      ok: true,
+      account: 'Conta Principal',
+    });
+    vi.unstubAllGlobals();
+  });
+
+  it('inspect retorna account null quando o serviço falha', async () => {
+    const { service } = build(ok);
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('timeout')));
+
+    const result = await service.inspect();
+    expect(result[0]).toMatchObject({ ok: false, account: null });
+    vi.unstubAllGlobals();
+  });
 });

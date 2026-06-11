@@ -26,10 +26,16 @@ function displayDomain(project: {
   return project.productionUrl ? stripScheme(project.productionUrl) : project.name;
 }
 
-/** Rótulo do gateway de pagamento: ok, fora, ou ausente (não monitorado). */
-function gatewayLabel(gateway: boolean | null): string {
+interface GatewayInfo {
+  ok: boolean;
+  account: string | null;
+}
+
+/** Rótulo do gateway: mostra a conta quando disponível, ou ok/fora. */
+function gatewayLabel(gateway: GatewayInfo | null): string {
   if (gateway === null) return '';
-  return gateway ? ' · 💳 ok' : ' · 💳 ⚠️ PIX FORA';
+  if (!gateway.ok) return ' · 💳 ⚠️ PIX FORA';
+  return gateway.account ? ` · 💳 ${gateway.account}` : ' · 💳 ok';
 }
 
 interface Row {
@@ -38,7 +44,7 @@ interface Row {
   detail: string;
   visitors: number;
   pageViews: number;
-  gateway: boolean | null;
+  gateway: GatewayInfo | null;
 }
 
 export const overviewCommand: BotCommand = {
@@ -54,7 +60,7 @@ export const overviewCommand: BotCommand = {
       [
         deps.projects.findAllActive(),
         deps.uptime.liveStatusAll(),
-        deps.externalMonitor.liveStatus(),
+        deps.externalMonitor.inspect(),
         deps.analytics.totalsByProject(todayStart, now),
         deps.analytics.totals(todayStart, now),
         deps.incidents.countOpen(),
@@ -64,21 +70,17 @@ export const overviewCommand: BotCommand = {
     const statusByName = new Map(statuses.map((s) => [s.name, s]));
     const analyticsByProject = new Map(byProject.map((b) => [b.projectId, b]));
 
-    // Indexa o status do gateway por host (sem www) extraído da URL do monitor.
-    const gatewayByHost = new Map<string, boolean>();
+    // Indexa o gateway (status + conta) por host já normalizado pelo inspect().
+    const gatewayByHost = new Map<string, GatewayInfo>();
     for (const g of gateways) {
-      try {
-        gatewayByHost.set(normalizeHost(new URL(g.url).hostname), g.result.success);
-      } catch {
-        // URL malformada — ignora.
-      }
+      gatewayByHost.set(g.host, { ok: g.ok, account: g.account });
     }
 
     const findGateway = (project: {
       name: string;
       domains: string[];
       productionUrl: string | null;
-    }): boolean | null => {
+    }): GatewayInfo | null => {
       const candidates = [displayDomain(project), project.name, ...project.domains]
         .filter(Boolean)
         .map(normalizeHost);
@@ -115,8 +117,20 @@ export const overviewCommand: BotCommand = {
 
     const onlineCount = rows.filter((r) => r.online === true).length;
     const monitored = rows.filter((r) => r.online !== null).length;
-    const gatewaysDown = rows.filter((r) => r.gateway === false).length;
+    const gatewaysDown = rows.filter((r) => r.gateway?.ok === false).length;
     const headerIcon = onlineCount === monitored && gatewaysDown === 0 ? '🟢' : '🔴';
+
+    // Distribuição de domínios por conta do gateway (visão macro).
+    const accountCounts = new Map<string, number>();
+    for (const row of rows) {
+      if (row.gateway?.account) {
+        accountCounts.set(row.gateway.account, (accountCounts.get(row.gateway.account) ?? 0) + 1);
+      }
+    }
+    const accountSummary = [...accountCounts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([account, count]) => `${escapeHtml(account)} ×${count}`)
+      .join(' · ');
 
     const offline = rows.filter((r) => r.online === false);
     const withTraffic = rows.filter(
@@ -132,6 +146,7 @@ export const overviewCommand: BotCommand = {
     lines.push(
       `👥 Hoje: <b>${formatNumber(todayGlobal.visitors)}</b> visitantes · ${formatNumber(todayGlobal.pageViews)} views`,
     );
+    if (accountSummary) lines.push(`💳 Contas: ${accountSummary}`);
 
     if (offline.length > 0) {
       lines.push('', '🔴 <b>FORA DO AR</b>');
