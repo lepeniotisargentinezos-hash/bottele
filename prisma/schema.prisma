@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum DeploymentState {
+  QUEUED
+  BUILDING
+  INITIALIZING
+  READY
+  ERROR
+  CANCELED
+}
+
+enum IncidentType {
+  DOWNTIME
+  PERFORMANCE
+  DEPLOYMENT_FAILURE
+}
+
+enum IncidentStatus {
+  OPEN
+  RESOLVED
+}
+
+enum NotificationType {
+  DEPLOY_FAILED
+  DEPLOY_READY
+  SITE_DOWN
+  SITE_RECOVERED
+  PERFORMANCE_DEGRADED
+  NEW_PROJECT
+  DAILY_REPORT
+  WEEKLY_REPORT
+  SYSTEM
+}
+
+model User {
+  id         Int      @id @default(autoincrement())
+  telegramId BigInt   @unique @map("telegram_id")
+  chatId     BigInt   @map("chat_id")
+  username   String?
+  firstName  String?  @map("first_name")
+  isAdmin    Boolean  @default(false) @map("is_admin")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Project {
+  id            String   @id
+  name          String   @unique
+  framework     String?
+  productionUrl String?  @map("production_url")
+  domains       String[] @default([])
+  isActive      Boolean  @default(true) @map("is_active")
+  lastSyncedAt  DateTime? @map("last_synced_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  deployments Deployment[]
+  incidents   Incident[]
+  metrics     Metric[]
+  analytics   AnalyticsSnapshot[]
+
+  @@map("projects")
+}
+
+model Deployment {
+  id                String          @id
+  projectId         String          @map("project_id")
+  state             DeploymentState
+  url               String?
+  target            String?
+  branch            String?
+  commitSha         String?         @map("commit_sha")
+  commitMessage     String?         @map("commit_message")
+  commitAuthor      String?         @map("commit_author")
+  errorMessage      String?         @map("error_message")
+  vercelCreatedAt   DateTime        @map("vercel_created_at")
+  readyAt           DateTime?       @map("ready_at")
+  failureNotifiedAt DateTime?       @map("failure_notified_at")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, vercelCreatedAt(sort: Desc)])
+  @@index([state])
+  @@map("deployments")
+}
+
+model Incident {
+  id                  String         @id @default(cuid())
+  projectId           String         @map("project_id")
+  type                IncidentType
+  status              IncidentStatus @default(OPEN)
+  url                 String?
+  httpStatus          Int?           @map("http_status")
+  reason              String?
+  startedAt           DateTime       @default(now()) @map("started_at")
+  resolvedAt          DateTime?      @map("resolved_at")
+  notifiedAt          DateTime?      @map("notified_at")
+  recoveryNotifiedAt  DateTime?      @map("recovery_notified_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, status])
+  @@index([status, type])
+  @@map("incidents")
+}
+
+model Metric {
+  id             BigInt   @id @default(autoincrement())
+  projectId      String   @map("project_id")
+  url            String
+  statusCode     Int?     @map("status_code")
+  responseTimeMs Int      @map("response_time_ms")
+  success        Boolean
+  errorType      String?  @map("error_type")
+  checkedAt      DateTime @default(now()) @map("checked_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, checkedAt(sort: Desc)])
+  @@map("metrics")
+}
+
+model AnalyticsSnapshot {
+  id             Int      @id @default(autoincrement())
+  projectId      String   @map("project_id")
+  date           DateTime @db.Date
+  visitors       Int      @default(0)
+  uniqueVisitors Int      @default(0) @map("unique_visitors")
+  pageViews      Int      @default(0) @map("page_views")
+  topPages       Json?    @map("top_pages")
+  countries      Json?
+  devices        Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, date])
+  @@map("analytics")
+}
+
+model Notification {
+  id      Int              @id @default(autoincrement())
+  chatId  BigInt           @map("chat_id")
+  type    NotificationType
+  payload Json?
+  success Boolean          @default(true)
+  error   String?
+  sentAt  DateTime         @default(now()) @map("sent_at")
+
+  @@index([type, sentAt(sort: Desc)])
+  @@map("notifications")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
