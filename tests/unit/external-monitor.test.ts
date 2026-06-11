@@ -121,4 +121,29 @@ describe('ExternalMonitorService', () => {
     expect(result[0]).toMatchObject({ ok: false, account: null });
     vi.unstubAllGlobals();
   });
+
+  it('inspect anexa o MONITOR_TOKEN à URL quando configurado', async () => {
+    const monitors = [{ name: 'anubispay', url: 'https://api.anubispay.com/v1/health' }];
+    const settings = { getExternalMonitors: vi.fn().mockResolvedValue(monitors) };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ ok: true, account: 'X' }), { status: 200 }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const service = new ExternalMonitorService(
+      settings as never,
+      { get: vi.fn(), set: vi.fn() } as never,
+      { send: vi.fn() } as never,
+      { check: vi.fn() } as never,
+      10_000,
+      logger,
+      'meu-token-secreto',
+    );
+
+    await service.inspect();
+
+    const calledUrl = String(fetchMock.mock.calls[0][0]);
+    expect(calledUrl).toContain('token=meu-token-secreto');
+    vi.unstubAllGlobals();
+  });
 });

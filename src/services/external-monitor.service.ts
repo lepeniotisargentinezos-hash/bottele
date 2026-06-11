@@ -32,7 +32,20 @@ export class ExternalMonitorService {
     private readonly checker: HttpChecker,
     private readonly timeoutMs: number,
     private readonly logger: Logger,
+    private readonly monitorToken?: string,
   ) {}
+
+  /** Anexa o token de monitoramento à URL, para liberar os detalhes do /api/health. */
+  private withToken(rawUrl: string): string {
+    if (!this.monitorToken) return rawUrl;
+    try {
+      const url = new URL(rawUrl);
+      url.searchParams.set('token', this.monitorToken);
+      return url.toString();
+    } catch {
+      return rawUrl;
+    }
+  }
 
   async checkAll(): Promise<void> {
     const monitors = await this.settings.getExternalMonitors();
@@ -120,7 +133,7 @@ export class ExternalMonitorService {
         }
 
         try {
-          const response = await fetch(monitor.url, {
+          const response = await fetch(this.withToken(monitor.url), {
             redirect: 'follow',
             signal: AbortSignal.timeout(this.timeoutMs),
           });

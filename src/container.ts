@@ -153,6 +153,7 @@ export function buildContainer(): Container {
     new FetchHttpChecker(),
     env.HTTP_TIMEOUT_MS,
     logger,
+    env.MONITOR_TOKEN,
   );
   const analyticsService = new AnalyticsService(pageViewRepository, logger);
   const projectDetailService = new ProjectDetailService(

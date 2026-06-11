@@ -27,6 +27,12 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v === '' ? undefined : v)),
+  // Token compartilhado com os sites para acessar os detalhes do /api/health
+  // (conta do gateway). Deve ser igual ao MONITOR_TOKEN configurado nos projetos.
+  MONITOR_TOKEN: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatório'),
 
