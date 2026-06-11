@@ -6,6 +6,7 @@ import type {
   DeployActionsService,
   ExternalMonitorService,
   PerformanceService,
+  ProjectSyncService,
   ReportService,
   SettingsService,
   SslService,
@@ -33,6 +34,7 @@ export interface CommandDependencies {
   ssl: SslService;
   externalMonitor: ExternalMonitorService;
   analytics: AnalyticsService;
+  projectSync: ProjectSyncService;
 }
 
 export interface BotCommand {

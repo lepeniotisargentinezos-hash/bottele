@@ -29,15 +29,13 @@ function buildDeps() {
       ]),
     },
     externalMonitor: {
-      liveStatus: vi
-        .fn()
-        .mockResolvedValue([
-          {
-            name: 'pix-site-a',
-            url: 'https://www.site-a.com/api/health',
-            result: { success: true },
-          },
-        ]),
+      liveStatus: vi.fn().mockResolvedValue([
+        {
+          name: 'pix-site-a',
+          url: 'https://www.site-a.com/api/health',
+          result: { success: true },
+        },
+      ]),
     },
     analytics: {
       totalsByProject: vi

@@ -196,6 +196,7 @@ export function buildContainer(): Container {
     ssl: sslService,
     externalMonitor: externalMonitorService,
     analytics: analyticsService,
+    projectSync,
   };
 
   const configuredBot = createBot({

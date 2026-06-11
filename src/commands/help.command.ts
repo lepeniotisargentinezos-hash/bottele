@@ -25,6 +25,7 @@ export const helpCommand: BotCommand = {
         '/logs &lt;projeto&gt; — Logs do último build',
         '/check &lt;projeto&gt; — Texto esperado e URLs extras',
         '/monitor — Monitora serviços externos (gateways, APIs)',
+        '/sync — Sincroniza projetos/domínios com a Vercel agora',
         '/settings — Ajusta alertas e thresholds',
       ].join('\n'),
       { parse_mode: 'HTML' },

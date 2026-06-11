@@ -16,6 +16,7 @@ import { rollbackCommand } from './rollback.command';
 import { logsCommand } from './logs.command';
 import { checkCommand } from './check.command';
 import { monitorCommand } from './monitor.command';
+import { syncCommand } from './sync.command';
 import type { BotCommand } from './types';
 
 export type { BotCommand, CommandDependencies } from './types';
@@ -39,4 +40,5 @@ export const allCommands: BotCommand[] = [
   logsCommand,
   checkCommand,
   monitorCommand,
+  syncCommand,
 ];
