@@ -77,30 +77,40 @@ export const overviewCommand: BotCommand = {
     const monitored = rows.filter((r) => r.online !== null).length;
     const headerIcon = onlineCount === monitored ? '🟢' : '🔴';
 
+    const offline = rows.filter((r) => r.online === false);
+    const withTraffic = rows.filter(
+      (r) => r.online !== false && (r.visitors > 0 || r.pageViews > 0),
+    );
+    const idle = rows.filter((r) => r.online !== false && r.visitors === 0 && r.pageViews === 0);
+
     const lines: string[] = [
       '📊 <b>OVERVIEW GERAL</b>',
       `${headerIcon} ${onlineCount}/${monitored} online${openIncidents > 0 ? ` · ⚠️ ${openIncidents} incidente(s)` : ''}`,
       `👥 Hoje: <b>${formatNumber(todayGlobal.visitors)}</b> visitantes · ${formatNumber(todayGlobal.pageViews)} views`,
-      '━━━━━━━━━━━━━━',
     ];
 
-    for (const row of rows) {
-      if (row.online === false) {
-        // Site fora do ar: destaque do motivo, sem ruído de visitantes.
-        lines.push('', `🔴 <b>${escapeHtml(row.domain)}</b>`, `   ⚠️ ${escapeHtml(row.detail)}`);
-        continue;
+    if (offline.length > 0) {
+      lines.push('', '🔴 <b>FORA DO AR</b>');
+      for (const row of offline) {
+        lines.push(`🔴 <b>${escapeHtml(row.domain)}</b>`, `   ⚠️ ${escapeHtml(row.detail)}`);
       }
+    }
 
-      const icon = row.online === null ? '⚪' : '🟢';
-      const header = `${icon} <b>${escapeHtml(row.domain)}</b> · ${escapeHtml(row.detail)}`;
-      if (row.visitors > 0 || row.pageViews > 0) {
+    if (withTraffic.length > 0) {
+      lines.push('', '📈 <b>COM TRÁFEGO HOJE</b>');
+      for (const row of withTraffic) {
         lines.push(
-          '',
-          header,
-          `   👥 ${formatNumber(row.visitors)} · ${formatNumber(row.pageViews)} views`,
+          `🟢 <b>${escapeHtml(row.domain)}</b> · ${escapeHtml(row.detail)}`,
+          `   👥 ${formatNumber(row.visitors)} visitantes · ${formatNumber(row.pageViews)} views`,
         );
-      } else {
-        lines.push('', header);
+      }
+    }
+
+    if (idle.length > 0) {
+      lines.push('', '🟢 <b>SEM ACESSOS HOJE</b>');
+      for (const row of idle) {
+        const icon = row.online === null ? '⚪' : '🟢';
+        lines.push(`${icon} ${escapeHtml(row.domain)} · ${escapeHtml(row.detail)}`);
       }
     }
 

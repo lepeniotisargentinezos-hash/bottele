@@ -57,10 +57,12 @@ describe('/overview', () => {
     // Prefere domínio custom em vez do *.vercel.app.
     expect(message).toContain('site-a.com');
     expect(message).not.toContain('a.vercel.app');
-    // Offline (site-b) antes do online (site-a), com o motivo destacado.
-    expect(message.indexOf('site-b')).toBeLessThan(message.indexOf('site-a'));
+    // Seções separadas: fora do ar e com tráfego.
+    expect(message).toContain('FORA DO AR');
+    expect(message).toContain('COM TRÁFEGO HOJE');
+    expect(message.indexOf('FORA DO AR')).toBeLessThan(message.indexOf('COM TRÁFEGO HOJE'));
     expect(message).toContain('⚠️ HTTP 503');
-    expect(message).toContain('👥 50 · 120 views');
+    expect(message).toContain('👥 50 visitantes · 120 views');
   });
 
   it('omite a linha de visitantes quando o site está no ar sem acessos', async () => {
@@ -76,6 +78,7 @@ describe('/overview', () => {
     };
 
     await overviewCommand.handler(ctx as never, deps as never);
-    expect(message).not.toContain('👥 0 · 0 views');
+    expect(message).not.toContain('👥 0');
+    expect(message).toContain('SEM ACESSOS HOJE');
   });
 });
