@@ -169,3 +169,25 @@ model Setting {
 
   @@map("settings")
 }
+
+model PageView {
+  id         BigInt   @id @default(autoincrement())
+  projectId  String?  @map("project_id")
+  eventType  String   @map("event_type")
+  eventName  String?  @map("event_name")
+  path       String?
+  deviceId   String?  @map("device_id")
+  sessionId  String?  @map("session_id")
+  country    String?
+  city       String?
+  deviceType String?  @map("device_type")
+  osName     String?  @map("os_name")
+  clientName String?  @map("client_name")
+  referrer   String?
+  occurredAt DateTime @map("occurred_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([projectId, occurredAt(sort: Desc)])
+  @@index([occurredAt(sort: Desc)])
+  @@map("page_views")
+}

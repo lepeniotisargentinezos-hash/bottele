@@ -10,6 +10,7 @@ import type {
   UptimeService,
 } from '../services';
 import type { MetricRepository } from '../database/repositories/metric.repository';
+import type { PageViewRepository } from '../database/repositories/pageview.repository';
 import { JobRegistry } from './job-registry';
 import { Scheduler } from './scheduler';
 
@@ -27,6 +28,7 @@ export interface JobDependencies {
   ssl: SslService;
   externalMonitor: ExternalMonitorService;
   metricRepository: MetricRepository;
+  pageViewRepository: PageViewRepository;
 }
 
 const METRIC_RETENTION_DAYS = 90;
@@ -71,6 +73,7 @@ export function buildJobs(deps: JobDependencies): { registry: JobRegistry; sched
   registry.register('prune-metrics', '30 3 * * *', async () => {
     const cutoff = new Date(Date.now() - METRIC_RETENTION_DAYS * 24 * 60 * 60 * 1000);
     await deps.metricRepository.pruneOlderThan(cutoff);
+    await deps.pageViewRepository.pruneOlderThan(cutoff);
   });
 
   const scheduler = new Scheduler(registry, env.TZ, deps.logger);

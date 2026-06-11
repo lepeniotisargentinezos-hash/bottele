@@ -4,6 +4,7 @@ import { buildContainer } from './container';
 import { buildServer } from './server';
 import { registerBotCommands } from './bot';
 import { toErrorMessage } from './utils/errors';
+import type { VercelAnalyticsEvent } from './services';
 
 async function main(): Promise<void> {
   logger.info({ nodeEnv: env.NODE_ENV }, 'Iniciando Vercel Telegram Monitor');
@@ -23,10 +24,21 @@ async function main(): Promise<void> {
           handler: (event) => container.deploymentLive.handleEvent(event),
         }
       : undefined,
+    drain: env.VERCEL_DRAIN_SECRET
+      ? {
+          secret: env.VERCEL_DRAIN_SECRET,
+          handler: (events) =>
+            container.analytics.ingest(events as VercelAnalyticsEvent[]).then(() => undefined),
+        }
+      : undefined,
   });
   await server.listen({ port: env.PORT, host: '0.0.0.0' });
   logger.info(
-    { port: env.PORT, webhooks: Boolean(env.VERCEL_WEBHOOK_SECRET) },
+    {
+      port: env.PORT,
+      webhooks: Boolean(env.VERCEL_WEBHOOK_SECRET),
+      analyticsDrain: Boolean(env.VERCEL_DRAIN_SECRET),
+    },
     'Servidor HTTP no ar',
   );
 

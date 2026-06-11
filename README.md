@@ -12,13 +12,9 @@ Bot do Telegram para monitoramento completo de uma conta Vercel: deployments, di
 - 🔌 **Monitor de serviços externos** — acompanha gateways de pagamento e APIs de terceiros (ex.: AnubisPay) e alerta na hora que saem do ar e quando voltam, com tempo fora.
 - 🎮 **Ações pela conversa** — alertas de falha trazem botões inline: **Redeploy** e **Ver logs**; alertas de queda trazem **Checar agora**. Comandos `/rollback` (reverte produção), `/logs` e `/settings` interativo.
 - 🔍 **Checagem de conteúdo + URLs extras** — além do status HTTP, valida que a página contém um texto esperado (pega erros "silenciosos") e monitora endpoints adicionais (ex.: `/api/health`) por projeto.
+- 📈 **Web Analytics via Drain** — recebe visitantes, page views, top páginas, países e dispositivos que a Vercel envia (push) pelo Web Analytics Drain. Sem tocar nos sites; requer plano Pro.
 - 📊 **Relatórios** — relatório diário às 08:00 (com gráfico de latência por projeto via QuickChart) e resumo semanal com deploys, falhas, incidentes, tempo offline e disponibilidade.
 - 🌐 **Status page pública** — `GET /status` serve uma página compartilhável com o estado de cada projeto.
-
-> **Web Analytics não incluído.** A Vercel não expõe os dados de Web Analytics
-> por API REST (apenas via cookie de sessão do dashboard), então o monitor não
-> coleta visitantes/page views. Para métricas de tráfego, integre uma ferramenta
-> com API própria (Google Analytics, Plausible, Umami).
 - 🔐 **Segurança** — bot restrito ao `CHAT_ID` configurado, rate limiting (bot e HTTP), validação de ambiente com Zod, logs com redação de segredos.
 - 🩺 **Observabilidade** — `GET /health`, `GET /metrics`, logs estruturados (pino) e monitoramento interno de todos os jobs.
 
@@ -112,6 +108,21 @@ Com o webhook configurado, falhas de deploy chegam em ~1 segundo (em vez de até
 
 A rota valida a assinatura `x-vercel-signature` (HMAC SHA-1 do corpo bruto) com comparação em tempo constante; requisições sem assinatura válida recebem 401.
 
+## Web Analytics via Drain (visitantes)
+
+Requer **plano Pro**. A Vercel envia (push) cada page view/evento para o endpoint `POST /drains/analytics`, alimentando `/visitors` e `/analytics` com dados reais — sem tocar nos sites (o `@vercel/analytics` já instalado alimenta o drain).
+
+1. Garanta um domínio público para o serviço (mesmo dos webhooks).
+2. No dashboard: **Team Settings → Drains → Add Drain**
+   - Tipo: **Web Analytics**
+   - Destino (Custom Endpoint): `https://<seu-dominio>/drains/analytics`
+   - Formato: **JSON** (NDJSON também é aceito)
+   - Projetos: todos
+3. Copie o **Signature Verification Secret** e defina `VERCEL_DRAIN_SECRET` no ambiente.
+4. Redeploy. Use o botão **Test** da Vercel para validar a entrega.
+
+A rota valida a mesma assinatura `x-vercel-signature` (HMAC SHA-1) dos webhooks. Sem o secret, `/drains/analytics` fica desativado. Os eventos crus ficam na tabela `page_views` com retenção de 90 dias.
+
 ## Variáveis de ambiente
 
 | Variável | Obrigatória | Default | Descrição |
@@ -121,6 +132,7 @@ A rota valida a assinatura `x-vercel-signature` (HMAC SHA-1 do corpo bruto) com 
 | `VERCEL_TOKEN` | ✅ | — | Token de acesso da Vercel |
 | `VERCEL_TEAM_ID` | — | — | ID do time (vazio = conta pessoal) |
 | `VERCEL_WEBHOOK_SECRET` | — | — | Secret do webhook (vazio = rota desativada, só polling) |
+| `VERCEL_DRAIN_SECRET` | — | — | Secret do Web Analytics Drain (vazio = `/drains/analytics` desativado) |
 | `DATABASE_URL` | ✅ | — | Connection string PostgreSQL |
 | `CHECK_INTERVAL_MINUTES` | — | `5` | Intervalo dos checks de disponibilidade |
 | `DEPLOY_POLL_INTERVAL_MINUTES` | — | `1` | Intervalo do polling de deployments |
@@ -146,6 +158,8 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `/status` | Visão geral da conta (projetos, incidentes, deploys 24h, uptime) |
 | `/deploys` | Últimos 10 deployments |
 | `/errors` | Incidentes abertos + falhas de deploy dos últimos 7 dias |
+| `/analytics` | Tráfego dos últimos 7 dias: visitantes, top páginas, países, dispositivos |
+| `/visitors` | Visitantes por projeto (hoje e 7 dias) |
 | `/performance` | Latência média, P95 e P99 por projeto (24h) |
 | `/uptime` | Disponibilidade por projeto, global e SSL expirando |
 | `/report` | Gera o relatório diário sob demanda |
@@ -175,6 +189,7 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 - `GET /health` → `{"status":"ok"}` (200) ou `{"status":"degraded"}` (503)
 - `GET /metrics` → uptime do processo, estado de DB/API Vercel e estatísticas de cada job (execuções, falhas, último erro)
 - `GET /status` → status page pública (HTML) com o estado e o uptime de cada projeto
+- `POST /drains/analytics` → recebe Web Analytics da Vercel (quando `VERCEL_DRAIN_SECRET` configurado)
 - Logs estruturados JSON em produção (pino), com redação automática de tokens
 
 ## Testes

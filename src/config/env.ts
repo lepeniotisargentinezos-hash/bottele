@@ -21,6 +21,12 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v === '' ? undefined : v)),
+  // Secret do Web Analytics Drain (Vercel → Team Settings → Drains).
+  // Ausente = endpoint /drains/analytics desativado.
+  VERCEL_DRAIN_SECRET: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatório'),
 

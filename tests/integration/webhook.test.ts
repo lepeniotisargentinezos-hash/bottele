@@ -118,3 +118,75 @@ describe('POST /webhooks/vercel (integração)', () => {
     await server.close();
   });
 });
+
+describe('POST /drains/analytics (integração)', () => {
+  const drainBody = JSON.stringify([
+    {
+      schema: 'vercel.analytics.v2',
+      eventType: 'pageview',
+      timestamp: 1700000000000,
+      projectId: 'prj_1',
+      path: '/',
+      deviceId: 1,
+      sessionId: 2,
+    },
+  ]);
+
+  async function buildDrainServer(handler = vi.fn().mockResolvedValue(undefined)) {
+    const server = await buildServer({
+      statusService: { health: vi.fn().mockResolvedValue(healthyReport) } as never,
+      logger,
+      drain: { secret: SECRET, handler },
+    });
+    return { server, handler };
+  }
+
+  it('aceita eventos com assinatura válida e os despacha', async () => {
+    const { server, handler } = await buildDrainServer();
+    const response = await server.inject({
+      method: 'POST',
+      url: '/drains/analytics',
+      headers: { 'content-type': 'application/json', 'x-vercel-signature': sign(drainBody) },
+      payload: drainBody,
+    });
+
+    expect(response.statusCode).toBe(200);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(handler).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ eventType: 'pageview' })]),
+    );
+    await server.close();
+  });
+
+  it('aceita NDJSON', async () => {
+    const ndjson =
+      '{"eventType":"pageview","timestamp":1,"deviceId":1}\n{"eventType":"pageview","timestamp":2,"deviceId":2}';
+    const { server, handler } = await buildDrainServer();
+    const response = await server.inject({
+      method: 'POST',
+      url: '/drains/analytics',
+      headers: { 'content-type': 'application/x-ndjson', 'x-vercel-signature': sign(ndjson) },
+      payload: ndjson,
+    });
+
+    expect(response.statusCode).toBe(200);
+    await new Promise((resolve) => setImmediate(resolve));
+    const events = handler.mock.calls[0][0];
+    expect(events).toHaveLength(2);
+    await server.close();
+  });
+
+  it('rejeita assinatura inválida com 403', async () => {
+    const { server, handler } = await buildDrainServer();
+    const response = await server.inject({
+      method: 'POST',
+      url: '/drains/analytics',
+      headers: { 'content-type': 'application/json', 'x-vercel-signature': 'errada' },
+      payload: drainBody,
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(handler).not.toHaveBeenCalled();
+    await server.close();
+  });
+});

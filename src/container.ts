@@ -8,6 +8,7 @@ import {
   IncidentRepository,
   MetricRepository,
   NotificationRepository,
+  PageViewRepository,
   ProjectRepository,
   SettingsRepository,
   UserRepository,
@@ -15,6 +16,7 @@ import {
 import { VercelClient } from './integrations/vercel';
 import { TelegramNotifier } from './integrations/telegram';
 import {
+  AnalyticsService,
   DeployActionsService,
   DeploymentLiveService,
   DeploymentMonitorService,
@@ -46,6 +48,7 @@ export interface Container {
   projectSync: ProjectSyncService;
   statusService: StatusService;
   deploymentLive: DeploymentLiveService;
+  analytics: AnalyticsService;
 }
 
 export function buildContainer(): Container {
@@ -56,6 +59,7 @@ export function buildContainer(): Container {
   const deploymentRepository = new DeploymentRepository(prisma);
   const incidentRepository = new IncidentRepository(prisma);
   const metricRepository = new MetricRepository(prisma);
+  const pageViewRepository = new PageViewRepository(prisma);
   const notificationRepository = new NotificationRepository(prisma);
   const settingsRepository = new SettingsRepository(prisma);
   const userRepository = new UserRepository(prisma);
@@ -149,6 +153,7 @@ export function buildContainer(): Container {
     env.HTTP_TIMEOUT_MS,
     logger,
   );
+  const analyticsService = new AnalyticsService(pageViewRepository, logger);
 
   // Jobs
   const { registry, scheduler } = buildJobs({
@@ -162,6 +167,7 @@ export function buildContainer(): Container {
     ssl: sslService,
     externalMonitor: externalMonitorService,
     metricRepository,
+    pageViewRepository,
   });
 
   const statusService = new StatusService(
@@ -189,6 +195,7 @@ export function buildContainer(): Container {
     deployActions,
     ssl: sslService,
     externalMonitor: externalMonitorService,
+    analytics: analyticsService,
   };
 
   const configuredBot = createBot({
@@ -207,5 +214,6 @@ export function buildContainer(): Container {
     projectSync,
     statusService,
     deploymentLive,
+    analytics: analyticsService,
   };
 }

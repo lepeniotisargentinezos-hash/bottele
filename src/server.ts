@@ -12,10 +12,16 @@ export interface WebhookOptions {
   handler: (event: VercelWebhookEvent) => Promise<void>;
 }
 
+export interface DrainOptions {
+  secret: string;
+  handler: (events: unknown[]) => Promise<void>;
+}
+
 export interface BuildServerOptions {
   statusService: StatusService;
   logger: Logger;
   webhook?: WebhookOptions;
+  drain?: DrainOptions;
 }
 
 function verifySignature(rawBody: Buffer, signature: string, secret: string): boolean {
@@ -23,6 +29,23 @@ function verifySignature(rawBody: Buffer, signature: string, secret: string): bo
   const received = Buffer.from(signature, 'utf8');
   const computed = Buffer.from(expected, 'utf8');
   return received.length === computed.length && timingSafeEqual(received, computed);
+}
+
+/** Aceita tanto JSON array quanto NDJSON (formatos suportados pelos Drains). */
+function parseDrainBody(raw: string): unknown[] {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch {
+    // NDJSON: um objeto JSON por linha.
+    return trimmed
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => JSON.parse(line));
+  }
 }
 
 /**
@@ -68,48 +91,89 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     };
   });
 
-  if (options.webhook) {
-    const { secret, handler } = options.webhook;
+  if (options.webhook || options.drain) {
     const { logger } = options;
+    const webhook = options.webhook;
+    const drain = options.drain;
 
     // Escopo isolado: parser de corpo bruto (necessário para o HMAC)
     // sem afetar as demais rotas.
     await server.register(async (scope) => {
       scope.addContentTypeParser(
-        'application/json',
+        ['application/json', 'application/x-ndjson', 'text/plain'],
         { parseAs: 'buffer' },
         (_request, body, done) => done(null, body),
       );
 
-      scope.post(
-        '/webhooks/vercel',
-        // Rajadas de deploys legítimas não devem cair no rate limit global.
-        { config: { rateLimit: false } },
-        async (request, reply) => {
-          const rawBody = request.body as Buffer;
-          const signature = request.headers['x-vercel-signature'];
+      if (webhook) {
+        scope.post(
+          '/webhooks/vercel',
+          // Rajadas de deploys legítimas não devem cair no rate limit global.
+          { config: { rateLimit: false } },
+          async (request, reply) => {
+            const rawBody = request.body as Buffer;
+            const signature = request.headers['x-vercel-signature'];
 
-          if (typeof signature !== 'string' || !verifySignature(rawBody, signature, secret)) {
-            logger.warn({ ip: request.ip }, 'Webhook com assinatura inválida rejeitado');
-            return reply.status(401).send({ error: 'invalid signature' });
-          }
+            if (
+              typeof signature !== 'string' ||
+              !verifySignature(rawBody, signature, webhook.secret)
+            ) {
+              logger.warn({ ip: request.ip }, 'Webhook com assinatura inválida rejeitado');
+              return reply.status(401).send({ error: 'invalid signature' });
+            }
 
-          let event: VercelWebhookEvent;
-          try {
-            event = JSON.parse(rawBody.toString('utf8')) as VercelWebhookEvent;
-          } catch {
-            return reply.status(400).send({ error: 'invalid payload' });
-          }
+            let event: VercelWebhookEvent;
+            try {
+              event = JSON.parse(rawBody.toString('utf8')) as VercelWebhookEvent;
+            } catch {
+              return reply.status(400).send({ error: 'invalid payload' });
+            }
 
-          // Responde imediatamente; o processamento segue em background
-          // para a Vercel não considerar timeout e reenviar.
-          void handler(event).catch((error) =>
-            logger.error({ error: String(error) }, 'Erro ao processar webhook'),
-          );
+            // Responde imediatamente; o processamento segue em background
+            // para a Vercel não considerar timeout e reenviar.
+            void webhook
+              .handler(event)
+              .catch((error) =>
+                logger.error({ error: String(error) }, 'Erro ao processar webhook'),
+              );
 
-          return reply.status(200).send({ received: true });
-        },
-      );
+            return reply.status(200).send({ received: true });
+          },
+        );
+      }
+
+      if (drain) {
+        scope.post(
+          '/drains/analytics',
+          { config: { rateLimit: false } },
+          async (request, reply) => {
+            const rawBody = request.body as Buffer;
+            const signature = request.headers['x-vercel-signature'];
+
+            if (
+              typeof signature !== 'string' ||
+              !verifySignature(rawBody, signature, drain.secret)
+            ) {
+              logger.warn({ ip: request.ip }, 'Drain com assinatura inválida rejeitado');
+              return reply.status(403).send({ error: 'invalid signature' });
+            }
+
+            let events: unknown[];
+            try {
+              events = parseDrainBody(rawBody.toString('utf8'));
+            } catch {
+              return reply.status(400).send({ error: 'invalid payload' });
+            }
+
+            void drain
+              .handler(events)
+              .catch((error) => logger.error({ error: String(error) }, 'Erro ao processar drain'));
+
+            // Drains exigem 200 OK, senão marcam falha e reenviam.
+            return reply.status(200).send({ received: events.length });
+          },
+        );
+      }
     });
   }
 
