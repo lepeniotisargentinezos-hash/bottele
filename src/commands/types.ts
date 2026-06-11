@@ -2,7 +2,6 @@ import type { Context } from 'grammy';
 import type { Env } from '../config/env';
 import type { Logger } from '../utils/logger';
 import type {
-  AnalyticsService,
   PerformanceService,
   ReportService,
   SettingsService,
@@ -23,7 +22,6 @@ export interface CommandDependencies {
   incidents: IncidentRepository;
   uptime: UptimeService;
   performance: PerformanceService;
-  analytics: AnalyticsService;
   reports: ReportService;
   status: StatusService;
   settings: SettingsService;

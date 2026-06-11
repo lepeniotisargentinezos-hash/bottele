@@ -1,6 +1,6 @@
 # Vercel Telegram Monitor
 
-Bot do Telegram para monitoramento completo de uma conta Vercel: deployments, disponibilidade, performance, analytics e relatórios automáticos.
+Bot do Telegram para monitoramento completo de uma conta Vercel: deployments, disponibilidade, performance e relatórios automáticos.
 
 ## Funcionalidades
 
@@ -8,8 +8,12 @@ Bot do Telegram para monitoramento completo de uma conta Vercel: deployments, di
 - 🚨 **Monitoramento de deployments** — alerta imediato em falhas e cancelamentos, com branch, commit, autor e motivo do erro extraído dos logs de build.
 - 🔴 **Monitoramento de disponibilidade** — verifica os domínios de produção a cada 5 minutos (HTTP 5xx, timeout, DNS inválido) e avisa na queda e na recuperação (com duração da indisponibilidade).
 - ⚡ **Performance** — latência média, P95 e P99 com thresholds configuráveis e alertas de degradação/normalização.
-- 📈 **Analytics** — coleta Web Analytics da Vercel (quando disponível no plano) e persiste histórico diário.
-- 📊 **Relatórios** — relatório diário às 08:00 e resumo semanal com crescimento de tráfego, deploys, erros e tempo offline.
+- 📊 **Relatórios** — relatório diário às 08:00 e resumo semanal com deploys, falhas, incidentes, tempo offline e disponibilidade.
+
+> **Web Analytics não incluído.** A Vercel não expõe os dados de Web Analytics
+> por API REST (apenas via cookie de sessão do dashboard), então o monitor não
+> coleta visitantes/page views. Para métricas de tráfego, integre uma ferramenta
+> com API própria (Google Analytics, Plausible, Umami).
 - 🔐 **Segurança** — bot restrito ao `CHAT_ID` configurado, rate limiting (bot e HTTP), validação de ambiente com Zod, logs com redação de segredos.
 - 🩺 **Observabilidade** — `GET /health`, `GET /metrics`, logs estruturados (pino) e monitoramento interno de todos os jobs.
 
@@ -28,7 +32,7 @@ src/
 ├── server.ts               # Fastify: /health e /metrics
 ├── bot/                    # Montagem do bot grammY (middleware + comandos)
 ├── commands/               # Um arquivo por comando do Telegram
-├── services/               # Regras de negócio (sync, deploys, uptime, perf, analytics, reports)
+├── services/               # Regras de negócio (sync, deploys, uptime, perf, reports)
 ├── integrations/
 │   ├── vercel/             # Cliente da API REST da Vercel (auth, paginação, retry)
 │   └── telegram/           # Notifier (envio proativo + auditoria)
@@ -137,8 +141,6 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `/status` | Visão geral da conta (projetos, incidentes, deploys 24h, uptime) |
 | `/deploys` | Últimos 10 deployments |
 | `/errors` | Incidentes abertos + falhas de deploy dos últimos 7 dias |
-| `/analytics` | Visitantes, page views e top projetos (7 dias) |
-| `/visitors` | Visitantes por projeto (7 dias) |
 | `/performance` | Latência média, P95 e P99 por projeto (24h) |
 | `/uptime` | Disponibilidade por projeto e global (24h) |
 | `/report` | Gera o relatório diário sob demanda |
@@ -152,7 +154,6 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `monitor-deployments` | a cada 1 min | Detecta deploys concluídos/falhados/cancelados |
 | `uptime-check` | a cada 5 min | Verifica disponibilidade dos domínios |
 | `performance-evaluation` | a cada 5 min | Avalia thresholds de latência |
-| `collect-analytics` | a cada hora | Snapshot diário de Web Analytics |
 | `daily-report` | 08:00 | Relatório diário |
 | `weekly-report` | segunda 08:00 | Relatório semanal |
 | `prune-metrics` | 03:30 | Retenção de métricas (90 dias) |
@@ -179,10 +180,6 @@ npm run lint     # ESLint
 npm run format   # Prettier
 npm run build    # tsc
 ```
-
-## Notas sobre Web Analytics
-
-A Vercel não expõe API pública estável para Web Analytics em todos os planos. O coletor tenta os endpoints e **degrada graciosamente**: se o plano/token não tiver acesso, o restante do monitoramento continua funcionando e os comandos de analytics informam a indisponibilidade.
 
 ## Deploy em produção
 

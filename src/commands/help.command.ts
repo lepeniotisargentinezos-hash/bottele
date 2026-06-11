@@ -12,8 +12,6 @@ export const helpCommand: BotCommand = {
         '/status — Visão geral da conta',
         '/deploys — Últimos deployments',
         '/errors — Falhas e incidentes recentes',
-        '/analytics — Métricas dos últimos 7 dias',
-        '/visitors — Visitantes por projeto (7 dias)',
         '/performance — Latência média, P95 e P99 (24h)',
         '/uptime — Disponibilidade por projeto (24h)',
         '/report — Gera o relatório diário agora',

@@ -1,7 +1,6 @@
 import type { Env } from '../config/env';
 import type { Logger } from '../utils/logger';
 import type {
-  AnalyticsService,
   DeploymentMonitorService,
   PerformanceService,
   ProjectSyncService,
@@ -22,7 +21,6 @@ export interface JobDependencies {
   deploymentMonitor: DeploymentMonitorService;
   uptime: UptimeService;
   performance: PerformanceService;
-  analytics: AnalyticsService;
   reports: ReportService;
   metricRepository: MetricRepository;
 }
@@ -48,10 +46,6 @@ export function buildJobs(deps: JobDependencies): { registry: JobRegistry; sched
   // Avaliação de performance logo após os checks de uptime alimentarem as métricas.
   registry.register('performance-evaluation', `*/${env.CHECK_INTERVAL_MINUTES} * * * *`, () =>
     deps.performance.evaluateThresholds(),
-  );
-
-  registry.register('collect-analytics', '0 * * * *', () =>
-    deps.analytics.collectDailySnapshots().then(() => undefined),
   );
 
   registry.register('daily-report', `0 ${env.REPORT_HOUR} * * *`, () =>

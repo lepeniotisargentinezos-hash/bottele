@@ -39,22 +39,15 @@ export interface AccountOverview {
 export interface DailyReportData {
   date: Date;
   monitoredProjects: number;
-  visitors: number;
-  pageViews: number;
   deploys: number;
   failedDeploys: number;
   uptimePercent: number;
-  topProjectName: string | null;
   openIncidents: number;
 }
 
 export interface WeeklyReportData {
   weekStart: Date;
   weekEnd: Date;
-  visitors: number;
-  visitorsGrowth: number | null;
-  pageViews: number;
-  pageViewsGrowth: number | null;
   deploys: number;
   failedDeploys: number;
   incidents: number;

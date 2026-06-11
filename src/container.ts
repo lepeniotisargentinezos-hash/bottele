@@ -4,7 +4,6 @@ import { env } from './config/env';
 import { logger } from './utils/logger';
 import { createPrismaClient } from './database/client';
 import {
-  AnalyticsRepository,
   DeploymentRepository,
   IncidentRepository,
   MetricRepository,
@@ -16,7 +15,6 @@ import {
 import { VercelClient } from './integrations/vercel';
 import { TelegramNotifier } from './integrations/telegram';
 import {
-  AnalyticsService,
   DeploymentLiveService,
   DeploymentMonitorService,
   FetchHttpChecker,
@@ -54,7 +52,6 @@ export function buildContainer(): Container {
   const deploymentRepository = new DeploymentRepository(prisma);
   const incidentRepository = new IncidentRepository(prisma);
   const metricRepository = new MetricRepository(prisma);
-  const analyticsRepository = new AnalyticsRepository(prisma);
   const notificationRepository = new NotificationRepository(prisma);
   const settingsRepository = new SettingsRepository(prisma);
   const userRepository = new UserRepository(prisma);
@@ -117,17 +114,10 @@ export function buildContainer(): Container {
     settingsService,
     logger,
   );
-  const analyticsService = new AnalyticsService(
-    vercel,
-    projectRepository,
-    analyticsRepository,
-    logger,
-  );
   const reportService = new ReportService(
     projectRepository,
     deploymentRepository,
     incidentRepository,
-    analyticsService,
     uptimeService,
     notifier,
   );
@@ -140,7 +130,6 @@ export function buildContainer(): Container {
     deploymentMonitor,
     uptime: uptimeService,
     performance: performanceService,
-    analytics: analyticsService,
     reports: reportService,
     metricRepository,
   });
@@ -164,7 +153,6 @@ export function buildContainer(): Container {
     incidents: incidentRepository,
     uptime: uptimeService,
     performance: performanceService,
-    analytics: analyticsService,
     reports: reportService,
     status: statusService,
     settings: settingsService,

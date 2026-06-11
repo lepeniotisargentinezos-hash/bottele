@@ -4,8 +4,6 @@ import { projectsCommand } from './projects.command';
 import { statusCommand } from './status.command';
 import { deploysCommand } from './deploys.command';
 import { errorsCommand } from './errors.command';
-import { analyticsCommand } from './analytics.command';
-import { visitorsCommand } from './visitors.command';
 import { performanceCommand } from './performance.command';
 import { uptimeCommand } from './uptime.command';
 import { reportCommand } from './report.command';
@@ -21,8 +19,6 @@ export const allCommands: BotCommand[] = [
   statusCommand,
   deploysCommand,
   errorsCommand,
-  analyticsCommand,
-  visitorsCommand,
   performanceCommand,
   uptimeCommand,
   reportCommand,
