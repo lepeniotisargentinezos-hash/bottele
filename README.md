@@ -155,6 +155,7 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `/start` | Visão geral do bot |
 | `/help` | Lista de comandos |
 | `/overview` | Painel geral: status ao vivo, domínio e visitantes de hoje por projeto |
+| `/painel` | Menu interativo — clique num domínio e veja o card completo (status, gateway+conta, visitantes, top páginas, SSL, deploys e env vars) |
 | `/projects` | Projetos monitorados com status (🟢/🔴) |
 | `/status` | Visão geral da conta (projetos, incidentes, deploys 24h, uptime) |
 | `/deploys` | Últimos 10 deployments |

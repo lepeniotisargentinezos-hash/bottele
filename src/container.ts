@@ -23,6 +23,7 @@ import {
   ExternalMonitorService,
   FetchHttpChecker,
   PerformanceService,
+  ProjectDetailService,
   ProjectSyncService,
   ReportService,
   SettingsService,
@@ -154,6 +155,18 @@ export function buildContainer(): Container {
     logger,
   );
   const analyticsService = new AnalyticsService(pageViewRepository, logger);
+  const projectDetailService = new ProjectDetailService(
+    vercel,
+    projectRepository,
+    deploymentRepository,
+    incidentRepository,
+    uptimeService,
+    performanceService,
+    analyticsService,
+    externalMonitorService,
+    sslService,
+    logger,
+  );
 
   // Jobs
   const { registry, scheduler } = buildJobs({
@@ -197,6 +210,7 @@ export function buildContainer(): Container {
     externalMonitor: externalMonitorService,
     analytics: analyticsService,
     projectSync,
+    projectDetail: projectDetailService,
   };
 
   const configuredBot = createBot({

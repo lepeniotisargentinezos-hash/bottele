@@ -237,6 +237,19 @@ export class VercelClient {
   }
 
   /**
+   * Nomes das variáveis de ambiente configuradas no projeto (sem expor valores).
+   * Útil para verificar rapidamente se as envs esperadas estão presentes.
+   */
+  async listProjectEnvKeys(projectId: string): Promise<string[]> {
+    const response = await this.request<{ envs?: Array<{ key: string }> }>(
+      `/v9/projects/${projectId}/env`,
+      { decrypt: 'false' },
+    );
+    const keys = (response.envs ?? []).map((env) => env.key);
+    return [...new Set(keys)].sort((a, b) => a.localeCompare(b));
+  }
+
+  /**
    * Web Analytics da Vercel não possui API pública estável.
    * Tenta o endpoint interno e degrada graciosamente (retorna null)
    * quando o plano/token não tem acesso.

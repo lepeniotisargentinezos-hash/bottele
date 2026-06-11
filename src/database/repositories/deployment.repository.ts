@@ -61,6 +61,14 @@ export class DeploymentRepository {
     });
   }
 
+  findRecentByProject(projectId: string, limit = 5): Promise<Deployment[]> {
+    return this.prisma.deployment.findMany({
+      where: { projectId },
+      take: limit,
+      orderBy: { vercelCreatedAt: 'desc' },
+    });
+  }
+
   findRecentFailures(since: Date, limit = 10) {
     return this.prisma.deployment.findMany({
       where: { state: 'ERROR', vercelCreatedAt: { gte: since } },

@@ -1,6 +1,7 @@
 import { InlineKeyboard, type Bot, type Context } from 'grammy';
 import type { CommandDependencies } from '../commands';
 import { buildSettingsView, THRESHOLD_CODES, THRESHOLD_STEP_MS } from './settings-view';
+import { buildPanelMenu, buildProjectCard } from './project-detail-view';
 import { escapeHtml, formatMs } from '../utils/format';
 import { toErrorMessage } from '../utils/errors';
 import type { AlertSettings } from '../types';
@@ -35,6 +36,12 @@ export function registerCallbacks(bot: Bot, deps: CommandDependencies): void {
           break;
         case 'cfg':
           await handleConfig(ctx, deps, rest);
+          break;
+        case 'proj':
+          await handleProjectCard(ctx, deps, rest[0]);
+          break;
+        case 'painel':
+          await handlePanelBack(ctx, deps);
           break;
         default:
           await ctx.answerCallbackQuery();
@@ -106,6 +113,41 @@ async function handleRecheck(
     return `${icon} ${escapeHtml(r.url)} — ${escapeHtml(String(detail))}`;
   });
   await ctx.reply(['🔍 <b>Re-checagem</b>', '', ...lines].join('\n'), { parse_mode: 'HTML' });
+}
+
+async function handleProjectCard(
+  ctx: Context,
+  deps: CommandDependencies,
+  projectId?: string,
+): Promise<void> {
+  if (!projectId) {
+    await ctx.answerCallbackQuery();
+    return;
+  }
+  await ctx.answerCallbackQuery({ text: 'Carregando...' });
+  const detail = await deps.projectDetail.build(projectId);
+  if (!detail) {
+    await ctx.reply('Projeto não encontrado.');
+    return;
+  }
+  const { text, keyboard } = buildProjectCard(detail, deps.env.TZ);
+  // Edita a própria mensagem do menu para navegar sem poluir o chat.
+  try {
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  } catch {
+    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  }
+}
+
+async function handlePanelBack(ctx: Context, deps: CommandDependencies): Promise<void> {
+  await ctx.answerCallbackQuery();
+  const projects = await deps.projects.findAllActive();
+  const { text, keyboard } = buildPanelMenu(projects);
+  try {
+    await ctx.editMessageText(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  } catch {
+    await ctx.reply(text, { parse_mode: 'HTML', reply_markup: keyboard });
+  }
 }
 
 async function handleRollbackConfirm(ctx: Context, projectId?: string): Promise<void> {

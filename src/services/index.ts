@@ -7,6 +7,8 @@ export { SslService, TlsCertificateChecker } from './ssl.service';
 export { ExternalMonitorService } from './external-monitor.service';
 export { AnalyticsService } from './analytics.service';
 export type { VercelAnalyticsEvent } from './analytics.service';
+export { ProjectDetailService } from './project-detail.service';
+export type { ProjectDetail } from './project-detail.service';
 export { UptimeService, FetchHttpChecker } from './uptime.service';
 export { PerformanceService } from './performance.service';
 export { ReportService } from './report.service';
