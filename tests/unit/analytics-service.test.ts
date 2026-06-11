@@ -39,6 +39,37 @@ function buildService(webAnalyticsResult: unknown) {
   return { service, analytics, vercel };
 }
 
+describe('AnalyticsService.liveTotalsByProject', () => {
+  it('retorna totais ao vivo ordenados por visitantes e atualiza snapshots', async () => {
+    const { service, analytics, vercel } = buildService(statsFixture);
+    vercel.getWebAnalytics
+      .mockResolvedValueOnce({ ...statsFixture, visitors: 100 })
+      .mockResolvedValueOnce({ ...statsFixture, visitors: 900 });
+
+    const live = await service.liveTotalsByProject();
+
+    expect(live).toHaveLength(2);
+    expect(live[0]?.visitors).toBe(900); // ordenado decrescente
+    expect(live[0]?.projectName).toBe('landing-page');
+    expect(analytics.upsertSnapshot).toHaveBeenCalledTimes(2);
+  });
+
+  it('retorna lista vazia quando a API não está disponível', async () => {
+    const { service } = buildService(null);
+    expect(await service.liveTotalsByProject()).toEqual([]);
+  });
+
+  it('ignora projetos cuja consulta falha sem derrubar os demais', async () => {
+    const { service, vercel } = buildService(statsFixture);
+    vercel.getWebAnalytics
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce(statsFixture);
+
+    const live = await service.liveTotalsByProject();
+    expect(live).toHaveLength(1);
+  });
+});
+
 describe('AnalyticsService', () => {
   it('persiste snapshots quando a API retorna dados', async () => {
     const { service, analytics } = buildService(statsFixture);
