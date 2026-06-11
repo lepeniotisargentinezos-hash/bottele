@@ -3,6 +3,7 @@ import type { Env } from '../config/env';
 import type { Logger } from '../utils/logger';
 import type {
   DeployActionsService,
+  ExternalMonitorService,
   PerformanceService,
   ReportService,
   SettingsService,
@@ -29,6 +30,7 @@ export interface CommandDependencies {
   settings: SettingsService;
   deployActions: DeployActionsService;
   ssl: SslService;
+  externalMonitor: ExternalMonitorService;
 }
 
 export interface BotCommand {

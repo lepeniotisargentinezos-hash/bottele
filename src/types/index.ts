@@ -26,6 +26,12 @@ export interface UptimeCheckResult {
   reason: string | null;
 }
 
+/** Serviço externo monitorado (gateway de pagamento, API de terceiros, etc.). */
+export interface ExternalMonitor {
+  name: string;
+  url: string;
+}
+
 /** Configuração de monitoramento por projeto (persistida em settings). */
 export interface ProjectCheckConfig {
   /** Texto que deve estar presente no corpo da home (detecta erros "silenciosos"). */

@@ -1,0 +1,92 @@
+import { describe, expect, it, vi } from 'vitest';
+import { ExternalMonitorService } from '../../src/services/external-monitor.service';
+import type { HttpChecker } from '../../src/services/uptime.service';
+import type { UptimeCheckResult } from '../../src/types';
+import { logger } from '../../src/utils/logger';
+
+const ok: UptimeCheckResult = {
+  url: 'https://api.anubispay.com/v1',
+  success: true,
+  statusCode: 401,
+  responseTimeMs: 120,
+  errorType: null,
+  reason: null,
+};
+const down: UptimeCheckResult = {
+  url: 'https://api.anubispay.com/v1',
+  success: false,
+  statusCode: 503,
+  responseTimeMs: 90,
+  errorType: 'HTTP_ERROR',
+  reason: 'HTTP 503',
+};
+
+function build(result: UptimeCheckResult, storedState: unknown = {}) {
+  const monitors = [{ name: 'anubispay', url: 'https://api.anubispay.com/v1' }];
+  const settings = { getExternalMonitors: vi.fn().mockResolvedValue(monitors) };
+  const store: Record<string, unknown> = { external_monitor_state: storedState };
+  const settingsRepo = {
+    get: vi.fn().mockImplementation((k: string) => Promise.resolve(store[k] ?? null)),
+    set: vi.fn().mockImplementation((k: string, v: unknown) => {
+      store[k] = v;
+      return Promise.resolve();
+    }),
+  };
+  const notifier = { send: vi.fn().mockResolvedValue(true) };
+  const checker: HttpChecker = { check: vi.fn().mockResolvedValue(result) };
+
+  const service = new ExternalMonitorService(
+    settings as never,
+    settingsRepo as never,
+    notifier as never,
+    checker,
+    10_000,
+    logger,
+  );
+  return { service, notifier };
+}
+
+describe('ExternalMonitorService', () => {
+  it('alerta quando o gateway cai', async () => {
+    const { service, notifier } = build(down);
+    await service.checkAll();
+    expect(notifier.send).toHaveBeenCalledWith(
+      'SYSTEM',
+      expect.stringContaining('SERVIÇO EXTERNO FORA DO AR'),
+      expect.anything(),
+    );
+  });
+
+  it('não repete o alerta enquanto continua fora', async () => {
+    const { service, notifier } = build(down, {
+      anubispay: { down: true, since: new Date().toISOString() },
+    });
+    await service.checkAll();
+    expect(notifier.send).not.toHaveBeenCalled();
+  });
+
+  it('avisa quando o gateway volta', async () => {
+    const since = new Date(Date.now() - 5 * 60_000).toISOString();
+    const { service, notifier } = build(ok, { anubispay: { down: true, since } });
+    await service.checkAll();
+    expect(notifier.send).toHaveBeenCalledWith(
+      'SYSTEM',
+      expect.stringContaining('RESTABELECIDO'),
+      expect.anything(),
+    );
+  });
+
+  it('não alerta quando está tudo no ar', async () => {
+    const { service, notifier } = build(ok);
+    await service.checkAll();
+    expect(notifier.send).not.toHaveBeenCalled();
+  });
+
+  it('liveStatus retorna o estado de cada serviço', async () => {
+    const { service } = build(ok);
+    const status = await service.liveStatus();
+    expect(status).toHaveLength(1);
+    expect(status[0]?.name).toBe('anubispay');
+    expect(status[0]?.result.success).toBe(true);
+  });
+});

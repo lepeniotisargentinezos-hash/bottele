@@ -18,6 +18,7 @@ import {
   DeployActionsService,
   DeploymentLiveService,
   DeploymentMonitorService,
+  ExternalMonitorService,
   FetchHttpChecker,
   PerformanceService,
   ProjectSyncService,
@@ -140,6 +141,14 @@ export function buildContainer(): Container {
     sslService,
     notifier,
   );
+  const externalMonitorService = new ExternalMonitorService(
+    settingsService,
+    settingsRepository,
+    notifier,
+    new FetchHttpChecker(),
+    env.HTTP_TIMEOUT_MS,
+    logger,
+  );
 
   // Jobs
   const { registry, scheduler } = buildJobs({
@@ -151,6 +160,7 @@ export function buildContainer(): Container {
     performance: performanceService,
     reports: reportService,
     ssl: sslService,
+    externalMonitor: externalMonitorService,
     metricRepository,
   });
 
@@ -178,6 +188,7 @@ export function buildContainer(): Container {
     settings: settingsService,
     deployActions,
     ssl: sslService,
+    externalMonitor: externalMonitorService,
   };
 
   const configuredBot = createBot({

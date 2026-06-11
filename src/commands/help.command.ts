@@ -21,6 +21,7 @@ export const helpCommand: BotCommand = {
         '/rollback [projeto] — Reverte para o deploy anterior',
         '/logs &lt;projeto&gt; — Logs do último build',
         '/check &lt;projeto&gt; — Texto esperado e URLs extras',
+        '/monitor — Monitora serviços externos (gateways, APIs)',
         '/settings — Ajusta alertas e thresholds',
       ].join('\n'),
       { parse_mode: 'HTML' },

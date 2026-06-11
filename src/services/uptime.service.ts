@@ -224,9 +224,7 @@ export class UptimeService {
    * Checa a home de todos os projetos ativos ao vivo, em paralelo.
    * Usado pelo /projects para mostrar o estado real no momento do comando.
    */
-  async liveStatusAll(): Promise<
-    Array<{ name: string; url: string; result: UptimeCheckResult }>
-  > {
+  async liveStatusAll(): Promise<Array<{ name: string; url: string; result: UptimeCheckResult }>> {
     const projects = await this.projects.findAllActive();
     const checks = projects
       .filter((project) => project.productionUrl)

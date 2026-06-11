@@ -9,6 +9,7 @@ Bot do Telegram para monitoramento completo de uma conta Vercel: deployments, di
 - 🔴 **Monitoramento de disponibilidade** — verifica os domínios de produção a cada 5 minutos (HTTP 5xx, timeout, DNS inválido) e avisa na queda e na recuperação (com duração da indisponibilidade).
 - ⚡ **Performance** — latência média, P95 e P99 com thresholds configuráveis e alertas de degradação/normalização.
 - 🔐 **Monitor de SSL** — verifica os certificados TLS dos domínios e avisa 14/7/3/1 dias antes de expirar (conexão direta, sem depender da Vercel).
+- 🔌 **Monitor de serviços externos** — acompanha gateways de pagamento e APIs de terceiros (ex.: AnubisPay) e alerta na hora que saem do ar e quando voltam, com tempo fora.
 - 🎮 **Ações pela conversa** — alertas de falha trazem botões inline: **Redeploy** e **Ver logs**; alertas de queda trazem **Checar agora**. Comandos `/rollback` (reverte produção), `/logs` e `/settings` interativo.
 - 🔍 **Checagem de conteúdo + URLs extras** — além do status HTTP, valida que a página contém um texto esperado (pega erros "silenciosos") e monitora endpoints adicionais (ex.: `/api/health`) por projeto.
 - 📊 **Relatórios** — relatório diário às 08:00 (com gráfico de latência por projeto via QuickChart) e resumo semanal com deploys, falhas, incidentes, tempo offline e disponibilidade.
@@ -152,6 +153,7 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `/rollback [projeto]` | Reverte a produção para o deploy anterior (com confirmação) |
 | `/logs <projeto>` | Logs de build do deploy mais recente |
 | `/check <projeto>` | Configura texto esperado e URLs extras de monitoramento |
+| `/monitor` | Monitora serviços externos (gateways de pagamento, APIs) |
 | `/settings` | Menu interativo de alertas e thresholds |
 
 ## Jobs agendados
@@ -165,6 +167,7 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 | `daily-report` | 08:00 | Relatório diário (com gráfico de latência) |
 | `weekly-report` | segunda 08:00 | Relatório semanal |
 | `ssl-check` | 08:00 | Verifica expiração dos certificados TLS |
+| `external-monitor` | a cada 5 min | Checa gateways/APIs externos |
 | `prune-metrics` | 03:30 | Retenção de métricas (90 dias) |
 
 ## Observabilidade

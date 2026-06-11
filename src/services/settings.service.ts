@@ -1,10 +1,11 @@
 import type { Prisma } from '@prisma/client';
 import type { SettingsRepository } from '../database/repositories/settings.repository';
 import type { Env } from '../config/env';
-import type { AlertSettings, ProjectCheckConfig } from '../types';
+import type { AlertSettings, ExternalMonitor, ProjectCheckConfig } from '../types';
 
 const ALERT_SETTINGS_KEY = 'alert_settings';
 const PROJECT_CHECKS_KEY = 'project_checks';
+const EXTERNAL_MONITORS_KEY = 'external_monitors';
 
 /**
  * Configurações de alerta persistidas no banco, com defaults vindos do ambiente.
@@ -61,5 +62,22 @@ export class SettingsService {
     all[projectId] = merged;
     await this.repository.set(PROJECT_CHECKS_KEY, all as unknown as Prisma.InputJsonValue);
     return merged;
+  }
+
+  async getExternalMonitors(): Promise<ExternalMonitor[]> {
+    return (await this.repository.get<ExternalMonitor[]>(EXTERNAL_MONITORS_KEY)) ?? [];
+  }
+
+  async addExternalMonitor(name: string, url: string): Promise<ExternalMonitor[]> {
+    const monitors = (await this.getExternalMonitors()).filter((m) => m.name !== name);
+    monitors.push({ name, url });
+    await this.repository.set(EXTERNAL_MONITORS_KEY, monitors as unknown as Prisma.InputJsonValue);
+    return monitors;
+  }
+
+  async removeExternalMonitor(name: string): Promise<ExternalMonitor[]> {
+    const monitors = (await this.getExternalMonitors()).filter((m) => m.name !== name);
+    await this.repository.set(EXTERNAL_MONITORS_KEY, monitors as unknown as Prisma.InputJsonValue);
+    return monitors;
   }
 }

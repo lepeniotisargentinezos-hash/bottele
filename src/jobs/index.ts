@@ -2,6 +2,7 @@ import type { Env } from '../config/env';
 import type { Logger } from '../utils/logger';
 import type {
   DeploymentMonitorService,
+  ExternalMonitorService,
   PerformanceService,
   ProjectSyncService,
   ReportService,
@@ -24,6 +25,7 @@ export interface JobDependencies {
   performance: PerformanceService;
   reports: ReportService;
   ssl: SslService;
+  externalMonitor: ExternalMonitorService;
   metricRepository: MetricRepository;
 }
 
@@ -60,6 +62,11 @@ export function buildJobs(deps: JobDependencies): { registry: JobRegistry; sched
 
   // Certificados TLS mudam devagar — uma verificação diária basta.
   registry.register('ssl-check', `0 ${env.REPORT_HOUR} * * *`, () => deps.ssl.checkAll());
+
+  // Serviços externos (gateways de pagamento) na mesma cadência do uptime.
+  registry.register('external-monitor', `*/${env.CHECK_INTERVAL_MINUTES} * * * *`, () =>
+    deps.externalMonitor.checkAll(),
+  );
 
   registry.register('prune-metrics', '30 3 * * *', async () => {
     const cutoff = new Date(Date.now() - METRIC_RETENTION_DAYS * 24 * 60 * 60 * 1000);
