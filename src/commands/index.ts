@@ -1,5 +1,6 @@
 import { startCommand } from './start.command';
 import { helpCommand } from './help.command';
+import { overviewCommand } from './overview.command';
 import { projectsCommand } from './projects.command';
 import { statusCommand } from './status.command';
 import { deploysCommand } from './deploys.command';
@@ -22,6 +23,7 @@ export type { BotCommand, CommandDependencies } from './types';
 export const allCommands: BotCommand[] = [
   startCommand,
   helpCommand,
+  overviewCommand,
   projectsCommand,
   statusCommand,
   deploysCommand,

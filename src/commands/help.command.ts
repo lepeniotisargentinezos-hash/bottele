@@ -8,6 +8,7 @@ export const helpCommand: BotCommand = {
       [
         '📖 <b>Comandos disponíveis</b>',
         '',
+        '/overview — Painel geral: status, domínios e visitantes',
         '/projects — Lista projetos e status atual',
         '/status — Visão geral da conta',
         '/deploys — Últimos deployments',
