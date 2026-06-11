@@ -233,8 +233,8 @@ export class UptimeService {
     };
   }
 
-  async globalUptimePercent(since: Date): Promise<number> {
-    const counters = await this.metrics.uptimeCounters(null, since);
+  async globalUptimePercent(since: Date, until?: Date): Promise<number> {
+    const counters = await this.metrics.uptimeCounters(null, since, until);
     return counters.total === 0 ? 100 : (counters.successful / counters.total) * 100;
   }
 

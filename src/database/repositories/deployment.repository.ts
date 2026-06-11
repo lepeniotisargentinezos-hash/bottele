@@ -79,4 +79,16 @@ export class DeploymentRepository {
       where: { state, vercelCreatedAt: { gte: since } },
     });
   }
+
+  countBetween(from: Date, to: Date): Promise<number> {
+    return this.prisma.deployment.count({
+      where: { vercelCreatedAt: { gte: from, lt: to } },
+    });
+  }
+
+  countByStateBetween(state: DeploymentState, from: Date, to: Date): Promise<number> {
+    return this.prisma.deployment.count({
+      where: { state, vercelCreatedAt: { gte: from, lt: to } },
+    });
+  }
 }

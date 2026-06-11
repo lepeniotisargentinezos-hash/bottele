@@ -117,14 +117,6 @@ export function buildContainer(): Container {
     settingsService,
     logger,
   );
-  const reportService = new ReportService(
-    projectRepository,
-    deploymentRepository,
-    incidentRepository,
-    uptimeService,
-    performanceService,
-    notifier,
-  );
   const deployActions = new DeployActionsService(
     vercel,
     deploymentRepository,
@@ -138,6 +130,15 @@ export function buildContainer(): Container {
     new TlsCertificateChecker(),
     env.HTTP_TIMEOUT_MS,
     logger,
+  );
+  const reportService = new ReportService(
+    projectRepository,
+    deploymentRepository,
+    incidentRepository,
+    uptimeService,
+    performanceService,
+    sslService,
+    notifier,
   );
 
   // Jobs

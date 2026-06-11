@@ -32,9 +32,13 @@ export class MetricRepository {
     return metrics.map((m) => m.responseTimeMs);
   }
 
-  async uptimeCounters(projectId: string | null, since: Date): Promise<UptimeCounters> {
+  async uptimeCounters(
+    projectId: string | null,
+    since: Date,
+    until?: Date,
+  ): Promise<UptimeCounters> {
     const where = {
-      checkedAt: { gte: since },
+      checkedAt: until ? { gte: since, lt: until } : { gte: since },
       ...(projectId ? { projectId } : {}),
     };
     const [total, successful] = await Promise.all([

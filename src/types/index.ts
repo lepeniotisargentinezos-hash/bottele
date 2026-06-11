@@ -48,9 +48,14 @@ export interface DailyReportData {
   date: Date;
   monitoredProjects: number;
   deploys: number;
+  deploysPrev: number;
   failedDeploys: number;
+  failedDeploysPrev: number;
   uptimePercent: number;
-  openIncidents: number;
+  uptimePercentPrev: number;
+  openIncidents: Array<{ name: string; reason: string }>;
+  slowestProject: { name: string; p95Ms: number } | null;
+  sslExpiring: Array<{ project: string; daysRemaining: number }>;
 }
 
 export interface WeeklyReportData {
