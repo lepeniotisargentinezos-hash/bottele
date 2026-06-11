@@ -25,6 +25,7 @@ export class SettingsService {
       downtime: true,
       performance: true,
       newProjects: true,
+      salesAlerts: true,
       latencyThresholdMs: this.env.LATENCY_THRESHOLD_MS,
       p95ThresholdMs: this.env.P95_THRESHOLD_MS,
       p99ThresholdMs: this.env.P99_THRESHOLD_MS,

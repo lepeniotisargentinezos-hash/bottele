@@ -33,6 +33,12 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => (v === '' ? undefined : v)),
+  // Token que protege o endpoint /webhooks/anubispay (AnubisPay não assina os
+  // webhooks). Vai na query da URL configurada no painel do gateway.
+  ANUBIS_WEBHOOK_TOKEN: z
+    .string()
+    .optional()
+    .transform((v) => (v === '' ? undefined : v)),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL é obrigatório'),
 

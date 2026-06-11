@@ -9,6 +9,8 @@ export { AnalyticsService } from './analytics.service';
 export type { VercelAnalyticsEvent } from './analytics.service';
 export { ProjectDetailService } from './project-detail.service';
 export type { ProjectDetail } from './project-detail.service';
+export { SalesService } from './sales.service';
+export type { AnubisWebhookEvent } from './sales.service';
 export { UptimeService, FetchHttpChecker } from './uptime.service';
 export { PerformanceService } from './performance.service';
 export { ReportService } from './report.service';

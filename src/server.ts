@@ -17,11 +17,24 @@ export interface DrainOptions {
   handler: (events: unknown[]) => Promise<void>;
 }
 
+export interface AnubisOptions {
+  token: string;
+  handler: (event: unknown) => Promise<void>;
+}
+
 export interface BuildServerOptions {
   statusService: StatusService;
   logger: Logger;
   webhook?: WebhookOptions;
   drain?: DrainOptions;
+  anubis?: AnubisOptions;
+}
+
+/** Comparação de tokens em tempo constante. */
+function tokensMatch(a: string, b: string): boolean {
+  const bufA = Buffer.from(a, 'utf8');
+  const bufB = Buffer.from(b, 'utf8');
+  return bufA.length === bufB.length && timingSafeEqual(bufA, bufB);
 }
 
 function verifySignature(rawBody: Buffer, signature: string, secret: string): boolean {
@@ -91,10 +104,11 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     };
   });
 
-  if (options.webhook || options.drain) {
+  if (options.webhook || options.drain || options.anubis) {
     const { logger } = options;
     const webhook = options.webhook;
     const drain = options.drain;
+    const anubis = options.anubis;
 
     // Escopo isolado: parser de corpo bruto (necessário para o HMAC)
     // sem afetar as demais rotas.
@@ -171,6 +185,39 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
 
             // Drains exigem 200 OK, senão marcam falha e reenviam.
             return reply.status(200).send({ received: events.length });
+          },
+        );
+      }
+
+      if (anubis) {
+        scope.post(
+          '/webhooks/anubispay',
+          { config: { rateLimit: false } },
+          async (request, reply) => {
+            // AnubisPay não assina os webhooks; protegemos com token na query.
+            const provided =
+              typeof (request.query as { token?: string }).token === 'string'
+                ? (request.query as { token: string }).token
+                : '';
+            if (!tokensMatch(provided, anubis.token)) {
+              logger.warn({ ip: request.ip }, 'Webhook AnubisPay com token inválido rejeitado');
+              return reply.status(401).send({ error: 'invalid token' });
+            }
+
+            let event: unknown;
+            try {
+              event = JSON.parse((request.body as Buffer).toString('utf8'));
+            } catch {
+              return reply.status(400).send({ error: 'invalid payload' });
+            }
+
+            void anubis
+              .handler(event)
+              .catch((error) =>
+                logger.error({ error: String(error) }, 'Erro ao processar webhook AnubisPay'),
+              );
+
+            return reply.status(200).send({ received: true });
           },
         );
       }

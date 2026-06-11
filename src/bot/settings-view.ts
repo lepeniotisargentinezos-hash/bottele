@@ -13,6 +13,7 @@ const TOGGLES: ToggleDef[] = [
   { key: 'downtime', label: 'Site fora do ar' },
   { key: 'performance', label: 'Performance' },
   { key: 'newProjects', label: 'Novos projetos' },
+  { key: 'salesAlerts', label: 'Vendas (PIX pago)' },
 ];
 
 const THRESHOLDS: Array<{ key: keyof AlertSettings; label: string }> = [

@@ -31,6 +31,12 @@ async function main(): Promise<void> {
             container.analytics.ingest(events as VercelAnalyticsEvent[]).then(() => undefined),
         }
       : undefined,
+    anubis: env.ANUBIS_WEBHOOK_TOKEN
+      ? {
+          token: env.ANUBIS_WEBHOOK_TOKEN,
+          handler: (event) => container.anubisWebhook(event),
+        }
+      : undefined,
   });
   await server.listen({ port: env.PORT, host: '0.0.0.0' });
   logger.info(
@@ -38,6 +44,7 @@ async function main(): Promise<void> {
       port: env.PORT,
       webhooks: Boolean(env.VERCEL_WEBHOOK_SECRET),
       analyticsDrain: Boolean(env.VERCEL_DRAIN_SECRET),
+      anubisWebhook: Boolean(env.ANUBIS_WEBHOOK_TOKEN),
     },
     'Servidor HTTP no ar',
   );

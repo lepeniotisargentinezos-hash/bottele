@@ -190,3 +190,52 @@ describe('POST /drains/analytics (integração)', () => {
     await server.close();
   });
 });
+
+describe('POST /webhooks/anubispay (integração)', () => {
+  const saleBody = JSON.stringify({ Id: 'tx1', Amount: 100, Status: 'PAID' });
+
+  async function buildAnubisServer(handler = vi.fn().mockResolvedValue(undefined)) {
+    const server = await buildServer({
+      statusService: { health: vi.fn().mockResolvedValue(healthyReport) } as never,
+      logger,
+      anubis: { token: 'anubis-token', handler },
+    });
+    return { server, handler };
+  }
+
+  it('aceita evento com token correto na query', async () => {
+    const { server, handler } = await buildAnubisServer();
+    const response = await server.inject({
+      method: 'POST',
+      url: '/webhooks/anubispay?token=anubis-token',
+      headers: { 'content-type': 'application/json' },
+      payload: saleBody,
+    });
+
+    expect(response.statusCode).toBe(200);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(handler).toHaveBeenCalledWith(expect.objectContaining({ Id: 'tx1', Status: 'PAID' }));
+    await server.close();
+  });
+
+  it('rejeita token inválido ou ausente com 401', async () => {
+    const { server, handler } = await buildAnubisServer();
+    const semToken = await server.inject({
+      method: 'POST',
+      url: '/webhooks/anubispay',
+      headers: { 'content-type': 'application/json' },
+      payload: saleBody,
+    });
+    const tokenErrado = await server.inject({
+      method: 'POST',
+      url: '/webhooks/anubispay?token=errado',
+      headers: { 'content-type': 'application/json' },
+      payload: saleBody,
+    });
+
+    expect(semToken.statusCode).toBe(401);
+    expect(tokenErrado.statusCode).toBe(401);
+    expect(handler).not.toHaveBeenCalled();
+    await server.close();
+  });
+});

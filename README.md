@@ -192,6 +192,7 @@ Os thresholds também podem ser alterados em runtime: são persistidos na tabela
 - `GET /metrics` → uptime do processo, estado de DB/API Vercel e estatísticas de cada job (execuções, falhas, último erro)
 - `GET /status` → status page pública (HTML) com o estado e o uptime de cada projeto
 - `POST /drains/analytics` → recebe Web Analytics da Vercel (quando `VERCEL_DRAIN_SECRET` configurado)
+- `POST /webhooks/anubispay?token=…` → recebe webhooks de venda do AnubisPay (registra receita; alerta na venda confirmada)
 - Logs estruturados JSON em produção (pino), com redação automática de tokens
 
 ## Testes

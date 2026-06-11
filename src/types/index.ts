@@ -81,6 +81,7 @@ export interface AlertSettings {
   downtime: boolean;
   performance: boolean;
   newProjects: boolean;
+  salesAlerts: boolean;
   latencyThresholdMs: number;
   p95ThresholdMs: number;
   p99ThresholdMs: number;

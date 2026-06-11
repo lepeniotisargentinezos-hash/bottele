@@ -2,6 +2,8 @@ import { Bot } from 'grammy';
 import type { PrismaClient } from '@prisma/client';
 import { env } from './config/env';
 import { logger } from './utils/logger';
+import { escapeHtml } from './utils/format';
+import type { AnubisWebhookEvent } from './services';
 import { createPrismaClient } from './database/client';
 import {
   DeploymentRepository,
@@ -10,6 +12,7 @@ import {
   NotificationRepository,
   PageViewRepository,
   ProjectRepository,
+  SaleRepository,
   SettingsRepository,
   UserRepository,
 } from './database/repositories';
@@ -26,6 +29,7 @@ import {
   ProjectDetailService,
   ProjectSyncService,
   ReportService,
+  SalesService,
   SettingsService,
   SslService,
   StatusService,
@@ -50,6 +54,7 @@ export interface Container {
   statusService: StatusService;
   deploymentLive: DeploymentLiveService;
   analytics: AnalyticsService;
+  anubisWebhook: (event: unknown) => Promise<void>;
 }
 
 export function buildContainer(): Container {
@@ -61,6 +66,7 @@ export function buildContainer(): Container {
   const incidentRepository = new IncidentRepository(prisma);
   const metricRepository = new MetricRepository(prisma);
   const pageViewRepository = new PageViewRepository(prisma);
+  const saleRepository = new SaleRepository(prisma);
   const notificationRepository = new NotificationRepository(prisma);
   const settingsRepository = new SettingsRepository(prisma);
   const userRepository = new UserRepository(prisma);
@@ -156,6 +162,7 @@ export function buildContainer(): Container {
     env.MONITOR_TOKEN,
   );
   const analyticsService = new AnalyticsService(pageViewRepository, logger);
+  const salesService = new SalesService(saleRepository, projectRepository, logger);
   const projectDetailService = new ProjectDetailService(
     vercel,
     projectRepository,
@@ -222,6 +229,28 @@ export function buildContainer(): Container {
     logger,
   });
 
+  // Processa um webhook de venda do AnubisPay: registra e alerta se confirmada.
+  const anubisWebhook = async (event: unknown): Promise<void> => {
+    const result = await salesService.ingest(event as AnubisWebhookEvent);
+    if (!result.becamePaid) return;
+    const alertSettings = await settingsService.getAlertSettings();
+    if (!alertSettings.salesAlerts) return;
+
+    const valor = (result.amountCents / 100).toLocaleString('pt-BR', {
+      style: 'currency',
+      currency: 'BRL',
+    });
+    await notifier.send(
+      'SYSTEM',
+      [
+        '💰 <b>VENDA CONFIRMADA</b>',
+        '',
+        `Projeto: <b>${escapeHtml(result.projectName ?? 'n/d')}</b>`,
+        `Valor: <b>${valor}</b>`,
+      ].join('\n'),
+    );
+  };
+
   return {
     prisma,
     bot: configuredBot,
@@ -231,5 +260,6 @@ export function buildContainer(): Container {
     statusService,
     deploymentLive,
     analytics: analyticsService,
+    anubisWebhook,
   };
 }
