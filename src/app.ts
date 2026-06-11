@@ -18,6 +18,7 @@ async function main(): Promise<void> {
   const server = await buildServer({
     statusService: container.statusService,
     logger,
+    adminToken: env.MONITOR_TOKEN,
     webhook: env.VERCEL_WEBHOOK_SECRET
       ? {
           secret: env.VERCEL_WEBHOOK_SECRET,

@@ -73,6 +73,23 @@ describe('HTTP server (integração)', () => {
     await server.close();
   });
 
+  it('GET /metrics exige token quando adminToken está configurado', async () => {
+    const server = await buildServer({
+      statusService: buildStatusService(healthyReport) as never,
+      logger,
+      adminToken: 'admin-secreto',
+    });
+
+    const semToken = await server.inject({ method: 'GET', url: '/metrics' });
+    const comTokenErrado = await server.inject({ method: 'GET', url: '/metrics?token=x' });
+    const comToken = await server.inject({ method: 'GET', url: '/metrics?token=admin-secreto' });
+
+    expect(semToken.statusCode).toBe(401);
+    expect(comTokenErrado.statusCode).toBe(401);
+    expect(comToken.statusCode).toBe(200);
+    await server.close();
+  });
+
   it('GET /status renderiza a página pública em HTML', async () => {
     const statusService = {
       health: vi.fn().mockResolvedValue(healthyReport),

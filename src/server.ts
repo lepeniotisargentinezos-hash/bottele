@@ -28,6 +28,8 @@ export interface BuildServerOptions {
   webhook?: WebhookOptions;
   drain?: DrainOptions;
   anubis?: AnubisOptions;
+  /** Quando definido, protege /metrics (exige ?token=). */
+  adminToken?: string;
 }
 
 /** Comparação de tokens em tempo constante. */
@@ -85,7 +87,14 @@ export async function buildServer(options: BuildServerOptions): Promise<FastifyI
     return reply.type('text/html').send(html);
   });
 
-  server.get('/metrics', async () => {
+  server.get('/metrics', async (request, reply) => {
+    // /metrics revela a arquitetura interna; quando há adminToken, exige-o.
+    if (options.adminToken) {
+      const provided = (request.query as { token?: string }).token ?? '';
+      if (!tokensMatch(provided, options.adminToken)) {
+        return reply.status(401).send({ error: 'unauthorized' });
+      }
+    }
     const health = await options.statusService.health();
     return {
       status: health.status,
