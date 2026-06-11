@@ -247,6 +247,7 @@ export function buildContainer(): Container {
       '💰 <b>VENDA CONFIRMADA</b>',
       '',
       `🌐 <b>${escapeHtml(result.projectName ?? result.site ?? 'n/d')}</b>`,
+      result.stage ? `🏷️ ${escapeHtml(result.stage)}` : null,
       account ? `💳 Conta: ${escapeHtml(account)}` : null,
       `💵 <b>${formatBRL(result.amountCents)}</b>`,
       `🕐 ${formatDateTime(result.occurredAt, env.TZ)}`,

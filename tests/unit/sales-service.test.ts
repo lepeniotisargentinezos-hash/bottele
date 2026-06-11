@@ -42,6 +42,7 @@ describe('SalesService.ingest', () => {
     expect(result.becamePaid).toBe(true);
     expect(result.amountCents).toBe(10000); // R$100 → 10000 centavos
     expect(result.projectName).toBe('creditofacilonline.lol');
+    expect(result.stage).toBeNull(); // R$100 não está no mapa de etapas
 
     const input = sales.upsert.mock.calls[0][0];
     expect(input).toMatchObject({
@@ -51,6 +52,12 @@ describe('SalesService.ingest', () => {
       status: 'paid',
       amountCents: 10000,
     });
+  });
+
+  it('infere a etapa do funil pelo valor', async () => {
+    const { service } = build('pending');
+    const result = await service.ingest({ ...paidEvent, Amount: 29.9 });
+    expect(result.stage).toBe('Primeira Cobrança');
   });
 
   it('não marca becamePaid se já estava paga (evita alerta duplicado)', async () => {

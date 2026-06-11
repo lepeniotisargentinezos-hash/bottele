@@ -1,6 +1,7 @@
 import type { ProjectRepository } from '../database/repositories/project.repository';
 import type { RevenueTotals, SaleRepository } from '../database/repositories/sale.repository';
 import { toErrorMessage } from '../utils/errors';
+import { inferSaleStage } from '../utils/sale-stage';
 import type { Logger } from '../utils/logger';
 
 /** Payload do webhook de transação do AnubisPay (campos relevantes). */
@@ -22,6 +23,7 @@ export interface IngestResult {
   projectName: string | null;
   site: string | null;
   amountCents: number;
+  stage: string | null;
   occurredAt: Date;
 }
 
@@ -92,6 +94,8 @@ export class SalesService {
       parseDate(event.CreatedAt) ??
       new Date();
 
+    const stage = inferSaleStage(amountCents);
+
     const id = event.Id ?? event.ExternalId;
     if (!id) {
       this.logger.warn({ event }, 'Webhook AnubisPay sem Id; ignorado');
@@ -101,6 +105,7 @@ export class SalesService {
         projectName: null,
         site: null,
         amountCents: 0,
+        stage: null,
         occurredAt,
       };
     }
@@ -113,13 +118,13 @@ export class SalesService {
         site,
         amountCents,
         status,
-        product: null,
+        product: stage,
         occurredAt,
       });
 
       const becamePaid = status === 'paid' && previousStatus !== 'paid';
-      this.logger.info({ id, status, amountCents, site }, 'Venda AnubisPay registrada');
-      return { ok: true, becamePaid, projectName: name, site, amountCents, occurredAt };
+      this.logger.info({ id, status, amountCents, site, stage }, 'Venda AnubisPay registrada');
+      return { ok: true, becamePaid, projectName: name, site, amountCents, stage, occurredAt };
     } catch (error) {
       this.logger.error({ id, error: toErrorMessage(error) }, 'Falha ao registrar venda');
       return {
@@ -128,6 +133,7 @@ export class SalesService {
         projectName: null,
         site: null,
         amountCents,
+        stage,
         occurredAt,
       };
     }
